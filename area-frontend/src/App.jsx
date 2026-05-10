@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 const SERVICES = [
   {
     id: "gmail",
-    name: "Gmail",
+    name: "Gmai",
     color: "#EA4335",
     icon: "✉",
     description: "Emails, labels, attachments",
