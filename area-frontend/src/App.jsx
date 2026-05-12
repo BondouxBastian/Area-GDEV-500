@@ -25,42 +25,42 @@ const SERVICES = [
     name: "GitHub",
     color: "#24292F",
     icon: "⌥",
-    description: "Repos, issues, pull requests",
+    description: "Dépôts, issues, pull requests",
     actions: [
-      { id: "new_issue", name: "New issue opened", description: "Triggers when an issue is opened" },
-      { id: "new_pr", name: "New pull request", description: "Triggers when a PR is created" },
-      { id: "pr_merged", name: "Pull request merged", description: "Triggers when a PR is merged" },
+      { id: "new_issue", name: "Nouvelle issue ouverte",  description: "Se déclenche à l'ouverture d'une issue" },
+      { id: "new_pr",    name: "Nouvelle pull request",   description: "Se déclenche à la création d'une PR" },
+      { id: "pr_merged", name: "Pull request fusionnée",  description: "Se déclenche lors de la fusion d'une PR" },
     ],
     reactions: [
-      { id: "create_issue", name: "Create an issue", description: "Creates a new issue on a repo" },
-      { id: "add_label", name: "Add label to issue", description: "Adds a label to an existing issue" },
+      { id: "create_issue", name: "Créer une issue",            description: "Crée une nouvelle issue sur un dépôt" },
+      { id: "add_label",    name: "Ajouter un label à une issue", description: "Ajoute un label à une issue existante" },
     ],
   },
   {
-    id: "discord",
-    name: "Discord",
+    id: "discor",
+    name: "Discor",
     color: "#5865F2",
     icon: "◈",
-    description: "Messages, channels, servers",
+    description: "Messages, canaux, serveurs",
     actions: [
-      { id: "new_message", name: "New message in channel", description: "Triggers on a new message" },
-      { id: "new_member", name: "New server member", description: "Triggers when someone joins" },
+      { id: "new_message", name: "Nouveau message dans un canal", description: "Se déclenche sur un nouveau message" },
+      { id: "new_member",  name: "Nouveau membre du serveur",     description: "Se déclenche quand quelqu'un rejoint" },
     ],
     reactions: [
-      { id: "send_message", name: "Send a message", description: "Posts a message to a channel" },
-      { id: "send_dm", name: "Send a DM", description: "Sends a direct message to a user" },
+      { id: "send_message", name: "Envoyer un message", description: "Publie un message dans un canal" },
+      { id: "send_dm",      name: "Envoyer un MP",      description: "Envoie un message privé à un utilisateur" },
     ],
   },
   {
     id: "timer",
-    name: "Timer",
+    name: "Minuteur",
     color: "#F59E0B",
     icon: "◷",
-    description: "Schedules, dates, times",
+    description: "Planifications, dates, heures",
     actions: [
-      { id: "every_day", name: "Every day at time", description: "Triggers daily at a set time" },
-      { id: "every_hour", name: "Every X hours", description: "Triggers on an interval" },
-      { id: "specific_date", name: "On a specific date", description: "Triggers on a date/time" },
+      { id: "every_day",     name: "Chaque jour à une heure",    description: "Se déclenche quotidiennement à l'heure définie" },
+      { id: "every_hour",    name: "Toutes les X heures",        description: "Se déclenche à intervalle régulier" },
+      { id: "specific_date", name: "À une date précise",         description: "Se déclenche à une date/heure donnée" },
     ],
     reactions: [],
   },
@@ -69,58 +69,48 @@ const SERVICES = [
     name: "Notion",
     color: "#000000",
     icon: "▣",
-    description: "Pages, databases, blocks",
+    description: "Pages, bases de données, blocs",
     actions: [
-      { id: "new_page", name: "New page created", description: "Triggers when a page is created" },
-      { id: "db_item", name: "New database item", description: "Triggers on a new DB entry" },
+      { id: "new_page", name: "Nouvelle page créée",       description: "Se déclenche à la création d'une page" },
+      { id: "db_item",  name: "Nouvel élément en base",    description: "Se déclenche à l'ajout d'une entrée en BDD" },
     ],
     reactions: [
-      { id: "create_page", name: "Create a page", description: "Creates a new Notion page" },
-      { id: "add_db_item", name: "Add database item", description: "Adds a row to a database" },
+      { id: "create_page",  name: "Créer une page",              description: "Crée une nouvelle page Notion" },
+      { id: "add_db_item",  name: "Ajouter un élément en base",  description: "Ajoute une ligne dans une base de données" },
     ],
   },
 ];
 
-const MOCK_AREAS = [
+const AUTOMATISATIONS_DEMO = [
   {
     id: 1,
-    name: "GitHub issue → Discord alert",
+    name: "Issue GitHub → Alerte Discord",
     active: true,
-    action: { service: "github", name: "New issue opened" },
-    reaction: { service: "discord", name: "Send a message" },
+    action:   { service: "github", name: "Nouvelle issue ouverte" },
+    reaction: { service: "discor", name: "Envoyer un message" },
     runs: 24,
   },
   {
     id: 2,
-    name: "Daily email digest",
+    name: "Récapitulatif quotidien par e-mail",
     active: false,
-    action: { service: "timer", name: "Every day at time" },
-    reaction: { service: "gmail", name: "Send an email" },
+    action:   { service: "timer", name: "Chaque jour à une heure" },
+    reaction: { service: "gmail", name: "Envoyer un e-mail" },
     runs: 7,
   },
 ];
 
-// ─── Color helpers ────────────────────────────────────────────────────────────
-const SERVICE_COLORS = Object.fromEntries(SERVICES.map((s) => [s.id, s.color]));
+// ─── Utilitaires ──────────────────────────────────────────────────────────────
+
 const getService = (id) => SERVICES.find((s) => s.id === id);
 
-// ─── Components ───────────────────────────────────────────────────────────────
+// ─── Composants communs ───────────────────────────────────────────────────────
 
 function Badge({ children, color = "#6366f1" }) {
   return (
     <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "2px 10px",
-        borderRadius: 99,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.04em",
-        background: color + "20",
-        color: color,
-        textTransform: "uppercase",
-      }}
+      className="badge"
+      style={{ background: color + "20", color }}
     >
       {children}
     </span>
@@ -133,31 +123,9 @@ function Toggle({ value, onChange }) {
       onClick={() => onChange(!value)}
       aria-checked={value}
       role="switch"
-      style={{
-        width: 44,
-        height: 24,
-        borderRadius: 12,
-        border: "none",
-        background: value ? "#6366f1" : "#e5e7eb",
-        cursor: "pointer",
-        position: "relative",
-        transition: "background 0.2s",
-        flexShrink: 0,
-      }}
+      className={`toggle ${value ? "toggle--actif" : "toggle--inactif"}`}
     >
-      <span
-        style={{
-          position: "absolute",
-          top: 3,
-          left: value ? 23 : 3,
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          background: "#fff",
-          transition: "left 0.2s",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-        }}
-      />
+      <span className={`toggle__curseur ${value ? "toggle__curseur--actif" : "toggle__curseur--inactif"}`} />
     </button>
   );
 }
@@ -167,18 +135,12 @@ function ServiceIcon({ service, size = 36 }) {
   if (!svc) return null;
   return (
     <div
+      className="service-icone"
       style={{
         width: size,
         height: size,
-        borderRadius: 10,
         background: svc.color,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
         fontSize: size * 0.45,
-        color: "#fff",
-        flexShrink: 0,
-        fontWeight: 700,
       }}
     >
       {svc.icon}
@@ -186,245 +148,118 @@ function ServiceIcon({ service, size = 36 }) {
   );
 }
 
-// ─── Pages ────────────────────────────────────────────────────────────────────
+// ─── Page de connexion ────────────────────────────────────────────────────────
 
-function LoginPage({ onLogin }) {
-  const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ email: "", password: "", name: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+function PageConnexion({ onConnexion }) {
+  const [mode, setMode] = useState("connexion");
+  const [form, setForm] = useState({ email: "", motDePasse: "", nom: "" });
+  const [chargement, setChargement] = useState(false);
+  const [erreur, setErreur] = useState("");
 
-  const handleSubmit = () => {
-    if (!form.email || !form.password) {
-      setError("Please fill in all fields.");
+  const soumettre = () => {
+    if (!form.email || !form.motDePasse) {
+      setErreur("Veuillez remplir tous les champs.");
       return;
     }
-    setLoading(true);
-    setError("");
+    setChargement(true);
+    setErreur("");
     setTimeout(() => {
-      setLoading(false);
-      onLogin({ email: form.email, name: form.name || form.email.split("@")[0] });
+      setChargement(false);
+      onConnexion({ email: form.email, name: form.nom || form.email.split("@")[0] });
     }, 900);
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0a0a0f",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-        padding: "2rem",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* background grid */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(rgba(99,102,241,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.06) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          top: "20%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: 600,
-          height: 600,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
+    <div className="page-connexion">
+      {/* Grille d'arrière-plan */}
+      <div className="page-connexion__grille" />
+      <div className="page-connexion__halo" />
 
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
+      <div className="page-connexion__carte">
         {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 12,
-            }}
-          >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 20,
-                fontWeight: 800,
-                color: "#fff",
-              }}
-            >
-              A
-            </div>
-            <span style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-              AREA
-            </span>
+        <div className="page-connexion__logo">
+          <div className="page-connexion__logo-wrapper">
+            <div className="page-connexion__logo-icone">A</div>
+            <span className="page-connexion__logo-texte">AREA</span>
           </div>
-          <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
-            Connect your apps. Automate your life.
+          <p className="page-connexion__slogan">
+            Connectez vos applications. Automatisez votre vie.
           </p>
         </div>
 
-        {/* Card */}
-        <div
-          style={{
-            background: "#111118",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 20,
-            padding: "2rem",
-          }}
-        >
-          {/* Tabs */}
-          <div
-            style={{
-              display: "flex",
-              background: "#0a0a0f",
-              borderRadius: 10,
-              padding: 4,
-              marginBottom: "1.5rem",
-              gap: 4,
-            }}
-          >
-            {["login", "register"].map((m) => (
+        {/* Carte */}
+        <div className="page-connexion__formulaire">
+          {/* Onglets */}
+          <div className="page-connexion__onglets">
+            {["connexion", "inscription"].map((m) => (
               <button
                 key={m}
-                onClick={() => { setMode(m); setError(""); }}
-                style={{
-                  flex: 1,
-                  padding: "8px 0",
-                  border: "none",
-                  borderRadius: 8,
-                  background: mode === m ? "#6366f1" : "transparent",
-                  color: mode === m ? "#fff" : "#6b7280",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  transition: "all 0.2s",
-                  textTransform: "capitalize",
-                }}
+                onClick={() => { setMode(m); setErreur(""); }}
+                className={`page-connexion__onglet ${mode === m ? "page-connexion__onglet--actif" : "page-connexion__onglet--inactif"}`}
               >
-                {m === "login" ? "Sign In" : "Register"}
+                {m === "connexion" ? "Connexion" : "Inscription"}
               </button>
             ))}
           </div>
 
-          {/* Fields */}
-          {mode === "register" && (
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#9ca3af", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Name
-              </label>
+          {/* Champs */}
+          {mode === "inscription" && (
+            <div className="page-connexion__champ-groupe">
+              <label className="page-connexion__label">Nom</label>
               <input
                 type="text"
-                placeholder="Your name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                style={inputStyle}
+                placeholder="Votre nom"
+                value={form.nom}
+                onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                className="champ-input"
               />
             </div>
           )}
 
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#9ca3af", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Email
-            </label>
+          <div className="page-connexion__champ-groupe">
+            <label className="page-connexion__label">E-mail</label>
             <input
               type="email"
-              placeholder="you@example.com"
+              placeholder="vous@exemple.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              style={inputStyle}
+              className="champ-input"
             />
           </div>
 
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#9ca3af", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Password
-            </label>
+          <div className="page-connexion__champ-groupe page-connexion__champ-groupe--last">
+            <label className="page-connexion__label">Mot de passe</label>
             <input
               type="password"
               placeholder="••••••••"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              style={inputStyle}
+              value={form.motDePasse}
+              onChange={(e) => setForm({ ...form, motDePasse: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && soumettre()}
+              className="champ-input"
             />
           </div>
 
-          {error && (
-            <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 12, padding: "8px 12px", background: "rgba(239,68,68,0.1)", borderRadius: 8 }}>
-              {error}
-            </div>
-          )}
+          {erreur && <div className="page-connexion__erreur">{erreur}</div>}
 
           <button
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: "12px 0",
-              border: "none",
-              borderRadius: 10,
-              background: loading ? "#4f46e5" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "#fff",
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-              transition: "opacity 0.2s",
-              opacity: loading ? 0.8 : 1,
-            }}
+            onClick={soumettre}
+            disabled={chargement}
+            className={`page-connexion__bouton-principal ${chargement ? "page-connexion__bouton-principal--charge" : "page-connexion__bouton-principal--actif"}`}
           >
-            {loading ? "Loading…" : mode === "login" ? "Sign In" : "Create Account"}
+            {chargement ? "Chargement…" : mode === "connexion" ? "Se connecter" : "Créer un compte"}
           </button>
 
-          <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
-            <div style={{ color: "#374151", fontSize: 12, marginBottom: 12, position: "relative" }}>
-              <span style={{ background: "#111118", padding: "0 12px", position: "relative", zIndex: 1, color: "#6b7280" }}>
-                or continue with
-              </span>
-              <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.08)" }} />
+          <div className="page-connexion__separateur">
+            <div className="page-connexion__separateur-ligne">
+              <span className="page-connexion__separateur-texte">ou continuer avec</span>
+              <div className="page-connexion__separateur-trait" />
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="page-connexion__oauth">
               {["Google", "GitHub"].map((p) => (
                 <button
                   key={p}
-                  onClick={() => onLogin({ email: `user@${p.toLowerCase()}.com`, name: "OAuth User" })}
-                  style={{
-                    flex: 1,
-                    padding: "10px 0",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 10,
-                    background: "transparent",
-                    color: "#d1d5db",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    transition: "background 0.2s",
-                  }}
+                  onClick={() => onConnexion({ email: `user@${p.toLowerCase()}.com`, name: "Utilisateur OAuth" })}
+                  className="page-connexion__bouton-oauth"
                 >
                   {p}
                 </button>
@@ -437,138 +272,51 @@ function LoginPage({ onLogin }) {
   );
 }
 
-const inputStyle = {
-  width: "100%",
-  padding: "10px 14px",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: 10,
-  background: "#0a0a0f",
-  color: "#fff",
-  fontSize: 14,
-  outline: "none",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-};
+// ─── Barre latérale ───────────────────────────────────────────────────────────
 
-// ─── Layout / Sidebar ─────────────────────────────────────────────────────────
-
-function Sidebar({ page, setPage, user, onLogout }) {
-  const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "⊞" },
-    { id: "automations", label: "Automations", icon: "⚡" },
-    { id: "services", label: "Services", icon: "◈" },
-    { id: "create", label: "New automation", icon: "＋", accent: true },
+function BarreLatérale({ page, setPage, utilisateur, onDeconnexion }) {
+  const items = [
+    { id: "tableau-de-bord", label: "Tableau de bord", icon: "⊞" },
+    { id: "automatisations",  label: "Automatisations",  icon: "⚡" },
+    { id: "services",         label: "Services",          icon: "◈" },
+    { id: "creation",         label: "Nouvelle automation", icon: "＋", accent: true },
   ];
 
   return (
-    <aside
-      style={{
-        width: 220,
-        minHeight: "100vh",
-        background: "#111118",
-        borderRight: "1px solid rgba(255,255,255,0.06)",
-        display: "flex",
-        flexDirection: "column",
-        padding: "1.5rem 0",
-        flexShrink: 0,
-      }}
-    >
+    <aside className="sidebar">
       {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 1.25rem", marginBottom: "2rem" }}>
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 9,
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 16,
-            fontWeight: 800,
-            color: "#fff",
-          }}
-        >
-          A
-        </div>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>AREA</span>
+      <div className="sidebar__logo">
+        <div className="sidebar__logo-icone">A</div>
+        <span className="sidebar__logo-texte">AREA</span>
       </div>
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: "0 0.75rem" }}>
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setPage(item.id)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              width: "100%",
-              padding: "9px 12px",
-              border: item.accent ? "1px solid rgba(99,102,241,0.4)" : "none",
-              borderRadius: 10,
-              background:
-                item.accent
-                  ? "rgba(99,102,241,0.12)"
-                  : page === item.id
-                  ? "rgba(255,255,255,0.06)"
-                  : "transparent",
-              color: item.accent ? "#818cf8" : page === item.id ? "#fff" : "#6b7280",
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: page === item.id || item.accent ? 600 : 400,
-              textAlign: "left",
-              marginBottom: 4,
-              transition: "all 0.15s",
-            }}
-          >
-            <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+      {/* Navigation */}
+      <nav className="sidebar__nav">
+        {items.map((item) => {
+          let cls = "sidebar__nav-btn ";
+          if (item.accent) cls += "sidebar__nav-btn--accent";
+          else if (page === item.id) cls += "sidebar__nav-btn--actif";
+          else cls += "sidebar__nav-btn--inactif";
+
+          return (
+            <button key={item.id} onClick={() => setPage(item.id)} className={cls}>
+              <span className="sidebar__nav-icone">{item.icon}</span>
+              {item.label}
+            </button>
+          );
+        })}
       </nav>
 
-      {/* User */}
-      <div
-        style={{
-          padding: "1rem 1.25rem",
-          borderTop: "1px solid rgba(255,255,255,0.06)",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 13,
-            fontWeight: 700,
-            color: "#fff",
-            flexShrink: 0,
-          }}
-        >
-          {user.name[0].toUpperCase()}
+      {/* Utilisateur */}
+      <div className="sidebar__utilisateur">
+        <div className="sidebar__utilisateur-avatar">
+          {utilisateur.name[0].toUpperCase()}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {user.name}
-          </p>
-          <p style={{ margin: 0, fontSize: 11, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {user.email}
-          </p>
+        <div className="sidebar__utilisateur-info">
+          <p className="sidebar__utilisateur-nom">{utilisateur.name}</p>
+          <p className="sidebar__utilisateur-email">{utilisateur.email}</p>
         </div>
-        <button
-          onClick={onLogout}
-          title="Sign out"
-          style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", fontSize: 16, padding: 4 }}
-        >
+        <button onClick={onDeconnexion} title="Se déconnecter" className="sidebar__deconnexion">
           ⇥
         </button>
       </div>
@@ -699,70 +447,38 @@ function PageAutomatisations({ areas, setAreas, setPage }) {
   );
 }
 
-function AreaCard({ area, compact = false, onToggle, onDelete }) {
-  const actionSvc = getService(area.action.service);
-  const reactionSvc = getService(area.reaction.service);
-
+function CarteArea({ area, compact = false, onToggle, onDelete }) {
   return (
-    <div
-      style={{
-        background: "#111118",
-        border: "1px solid rgba(255,255,255,0.06)",
-        borderRadius: 14,
-        padding: compact ? "1rem 1.25rem" : "1.25rem",
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-      }}
-    >
-      {/* Service icons */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+    <div className={`carte-area ${compact ? "carte-area--compact" : "carte-area--normal"}`}>
+      <div className="carte-area__icones">
         <ServiceIcon service={area.action.service} size={32} />
-        <span style={{ color: "#4b5563", fontSize: 14 }}>→</span>
+        <span className="carte-area__fleche">→</span>
         <ServiceIcon service={area.reaction.service} size={32} />
       </div>
 
-      {/* Info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {area.name}
-        </p>
+      <div className="carte-area__info">
+        <p className="carte-area__nom">{area.name}</p>
         {!compact && (
-          <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>
+          <p className="carte-area__detail">
             {area.action.name} → {area.reaction.name}
           </p>
         )}
       </div>
 
-      {/* Runs */}
-      <div style={{ textAlign: "center", flexShrink: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{area.runs}</div>
-        <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.04em" }}>runs</div>
+      <div className="carte-area__executions">
+        <div className="carte-area__executions-nombre">{area.runs}</div>
+        <div className="carte-area__executions-label">exéc.</div>
       </div>
 
-      {/* Status */}
       {!compact && (
         <Badge color={area.active ? "#22c55e" : "#6b7280"}>
-          {area.active ? "Active" : "Paused"}
+          {area.active ? "Actif" : "En pause"}
         </Badge>
       )}
 
-      {/* Controls */}
       {onToggle && <Toggle value={area.active} onChange={onToggle} />}
       {onDelete && (
-        <button
-          onClick={onDelete}
-          style={{
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            color: "#4b5563",
-            fontSize: 18,
-            padding: 4,
-            transition: "color 0.2s",
-          }}
-          title="Delete"
-        >
+        <button onClick={onDelete} className="carte-area__supprimer" title="Supprimer">
           ✕
         </button>
       )}
@@ -770,57 +486,50 @@ function AreaCard({ area, compact = false, onToggle, onDelete }) {
   );
 }
 
-// ─── Services Page ────────────────────────────────────────────────────────────
+// ─── Page Services ────────────────────────────────────────────────────────────
 
-function ServicesPage({ subscribedServices, setSubscribedServices }) {
-  const toggle = (id) => {
-    setSubscribedServices((prev) =>
+function PageServices({ servicesSouscrits, setServicesSouscrits }) {
+  const basculer = (id) => {
+    setServicesSouscrits((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
     );
   };
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-          Services
-        </h1>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
-          Connect your accounts to enable actions and reactions
+    <div className="page">
+      <div className="page__entete">
+        <h1 className="page__titre">Services</h1>
+        <p className="page__sous-titre">
+          Connectez vos comptes pour activer les actions et réactions
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+      <div className="services-grille">
         {SERVICES.map((svc) => {
-          const connected = subscribedServices.includes(svc.id);
+          const connecte = servicesSouscrits.includes(svc.id);
           return (
             <div
               key={svc.id}
-              style={{
-                background: "#111118",
-                border: connected ? `1px solid ${svc.color}40` : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 16,
-                padding: "1.5rem",
-                transition: "border-color 0.2s",
-              }}
+              className="carte-service"
+              style={{ border: connecte ? `1px solid ${svc.color}40` : "1px solid rgba(255,255,255,0.06)" }}
             >
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+              <div className="carte-service__entete">
                 <ServiceIcon service={svc} size={44} />
-                <Toggle value={connected} onChange={() => toggle(svc.id)} />
+                <Toggle value={connecte} onChange={() => basculer(svc.id)} />
               </div>
-              <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: "#fff" }}>{svc.name}</p>
-              <p style={{ margin: "0 0 14px", fontSize: 13, color: "#6b7280" }}>{svc.description}</p>
+              <p className="carte-service__nom">{svc.name}</p>
+              <p className="carte-service__desc">{svc.description}</p>
 
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <Badge color="#6366f1">{svc.actions.length} actions</Badge>
-                <Badge color="#8b5cf6">{svc.reactions.length} reactions</Badge>
+              <div className="carte-service__badges">
+                <Badge color="#6366f1">{svc.actions.length} action{svc.actions.length !== 1 ? "s" : ""}</Badge>
+                <Badge color="#8b5cf6">{svc.reactions.length} réaction{svc.reactions.length !== 1 ? "s" : ""}</Badge>
               </div>
 
-              {connected && (
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p style={{ margin: 0, fontSize: 11, color: "#22c55e", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-                    Connected
+              {connecte && (
+                <div className="carte-service__connexion">
+                  <p className="carte-service__connexion-texte">
+                    <span className="carte-service__connexion-point" />
+                    Connecté
                   </p>
                 </div>
               )}
