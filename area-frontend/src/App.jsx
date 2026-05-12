@@ -1,20 +1,23 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
+import "./App.css";
+
+// ─── Données des services ──────────────────────────────────────────────────────
 
 const SERVICES = [
   {
     id: "gmail",
-    name: "Gmai",
+    name: "Gmail",
     color: "#EA4335",
     icon: "✉",
-    description: "Emails, labels, attachments",
+    description: "E-mails, libellés, pièces jointes",
     actions: [
-      { id: "new_email", name: "New email received", description: "Triggers when a new email arrives" },
-      { id: "email_from", name: "Email from specific sender", description: "Triggers on email from a given address" },
-      { id: "email_label", name: "Email labeled", description: "Triggers when an email gets a label" },
+      { id: "new_email",    name: "Nouvel e-mail reçu",            description: "Se déclenche à la réception d'un e-mail" },
+      { id: "email_from",  name: "E-mail d'un expéditeur précis",  description: "Se déclenche sur un e-mail d'une adresse donnée" },
+      { id: "email_label", name: "E-mail étiqueté",                description: "Se déclenche quand un e-mail reçoit un libellé" },
     ],
     reactions: [
-      { id: "send_email", name: "Send an email", description: "Sends an email to a recipient" },
-      { id: "create_draft", name: "Create a draft", description: "Creates a draft email" },
+      { id: "send_email",    name: "Envoyer un e-mail",  description: "Envoie un e-mail à un destinataire" },
+      { id: "create_draft",  name: "Créer un brouillon", description: "Crée un brouillon d'e-mail" },
     ],
   },
   {
@@ -573,109 +576,78 @@ function Sidebar({ page, setPage, user, onLogout }) {
   );
 }
 
-// ─── Dashboard Page ───────────────────────────────────────────────────────────
+// ─── Tableau de bord ──────────────────────────────────────────────────────────
 
-function DashboardPage({ areas, setPage, subscribedServices }) {
-  const totalRuns = areas.reduce((s, a) => s + a.runs, 0);
-  const active = areas.filter((a) => a.active).length;
+function TableauDeBord({ areas, setPage, servicesSouscrits }) {
+  const totalExecutions = areas.reduce((s, a) => s + a.runs, 0);
+  const actives = areas.filter((a) => a.active).length;
 
   const stats = [
-    { label: "Automations", value: areas.length, icon: "⚡" },
-    { label: "Active", value: active, icon: "●" },
-    { label: "Total runs", value: totalRuns, icon: "↺" },
-    { label: "Services", value: subscribedServices.length, icon: "◈" },
+    { label: "Automatisations", value: areas.length,              icon: "⚡" },
+    { label: "Actives",         value: actives,                   icon: "●" },
+    { label: "Exécutions",      value: totalExecutions,           icon: "↺" },
+    { label: "Services",        value: servicesSouscrits.length,  icon: "◈" },
   ];
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-          Dashboard
-        </h1>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
-          Your automation overview
-        </p>
+    <div className="page">
+      <div className="page__entete">
+        <h1 className="page__titre">Tableau de bord</h1>
+        <p className="page__sous-titre">Vue d'ensemble de vos automatisations</p>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: "2rem" }}>
+      {/* Statistiques */}
+      <div className="stats-grille">
         {stats.map((s) => (
-          <div
-            key={s.label}
-            style={{
-              background: "#111118",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 14,
-              padding: "1.25rem",
-            }}
-          >
-            <div style={{ fontSize: 22, marginBottom: 8 }}>{s.icon}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-              {s.value}
-            </div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              {s.label}
-            </div>
+          <div key={s.label} className="stat-carte">
+            <div className="stat-carte__icone">{s.icon}</div>
+            <div className="stat-carte__valeur">{s.value}</div>
+            <div className="stat-carte__label">{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Recent automations */}
-      <div style={{ marginBottom: "2rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#fff" }}>Recent automations</h2>
-          <button
-            onClick={() => setPage("automations")}
-            style={{ background: "transparent", border: "none", color: "#6366f1", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
-          >
-            View all →
+      {/* Automatisations récentes */}
+      <div className="section">
+        <div className="section__entete">
+          <h2 className="section__titre">Automatisations récentes</h2>
+          <button onClick={() => setPage("automatisations")} className="lien-voir-tout">
+            Tout voir →
           </button>
         </div>
 
         {areas.length === 0 ? (
-          <EmptyState
+          <EtatVide
             icon="⚡"
-            title="No automations yet"
-            description="Create your first automation to get started"
-            action={{ label: "Create automation", onClick: () => setPage("create") }}
+            title="Aucune automatisation"
+            description="Créez votre première automatisation pour commencer"
+            action={{ label: "Créer une automatisation", onClick: () => setPage("creation") }}
           />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="liste-verticale">
             {areas.slice(0, 3).map((area) => (
-              <AreaCard key={area.id} area={area} compact />
+              <CarteArea key={area.id} area={area} compact />
             ))}
           </div>
         )}
       </div>
 
-      {/* Quick start */}
+      {/* Démarrage rapide */}
       <div>
-        <h2 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 600, color: "#fff" }}>Quick start</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <h2 className="section__titre" style={{ marginBottom: "1rem" }}>Démarrage rapide</h2>
+        <div className="demarrage-rapide">
           {[
-            { title: "GitHub → Discord", desc: "Alert your team on new issues", action: "github", reaction: "discord" },
-            { title: "Timer → Gmail", desc: "Send daily digest emails", action: "timer", reaction: "gmail" },
-            { title: "Gmail → Notion", desc: "Save emails to a database", action: "gmail", reaction: "notion" },
+            { title: "GitHub → Discord", desc: "Alertez votre équipe sur les nouvelles issues", action: "github", reaction: "discor" },
+            { title: "Minuteur → Gmail",  desc: "Envoyez des récapitulatifs quotidiens",         action: "timer",  reaction: "gmail" },
+            { title: "Gmail → Notion",    desc: "Sauvegardez vos e-mails dans une base",         action: "gmail",  reaction: "notion" },
           ].map((t) => (
-            <button
-              key={t.title}
-              onClick={() => setPage("create")}
-              style={{
-                background: "#111118",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 14,
-                padding: "1.25rem",
-                cursor: "pointer",
-                textAlign: "left",
-                transition: "border-color 0.2s",
-              }}
-            >
-              <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            <button key={t.title} onClick={() => setPage("creation")} className="carte-demarrage">
+              <div className="carte-demarrage__icones">
                 <ServiceIcon service={t.action} size={28} />
                 <ServiceIcon service={t.reaction} size={28} />
               </div>
-              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#fff" }}>{t.title}</p>
-              <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>{t.desc}</p>
+              <p className="carte-demarrage__nom">{t.title}</p>
+              <p className="carte-demarrage__desc">{t.desc}</p>
             </button>
           ))}
         </div>
@@ -684,55 +656,42 @@ function DashboardPage({ areas, setPage, subscribedServices }) {
   );
 }
 
-// ─── Automations Page ─────────────────────────────────────────────────────────
+// ─── Page Automatisations ─────────────────────────────────────────────────────
 
-function AutomationsPage({ areas, setAreas, setPage }) {
-  const toggleArea = (id) => {
-    setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a)));
-  };
-  const deleteArea = (id) => {
-    setAreas((prev) => prev.filter((a) => a.id !== id));
-  };
+function PageAutomatisations({ areas, setAreas, setPage }) {
+  const basculer = (id) => setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a)));
+  const supprimer = (id) => setAreas((prev) => prev.filter((a) => a.id !== id));
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
+    <div className="page">
+      <div className="page-auto__entete">
         <div>
-          <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-            Automations
-          </h1>
-          <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
-            {areas.length} automation{areas.length !== 1 ? "s" : ""}
+          <h1 className="page__titre">Automatisations</h1>
+          <p className="page__sous-titre">
+            {areas.length} automatisation{areas.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <button
-          onClick={() => setPage("create")}
-          style={{
-            padding: "9px 18px",
-            border: "none",
-            borderRadius: 10,
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          + New automation
+        <button onClick={() => setPage("creation")} className="bouton-principal">
+          + Nouvelle automatisation
         </button>
       </div>
 
       {areas.length === 0 ? (
-        <EmptyState
+        <EtatVide
           icon="⚡"
-          title="No automations yet"
-          description="Connect your first Action to a REAction and let the magic happen"
-          action={{ label: "Create automation", onClick: () => setPage("create") }}
+          title="Aucune automatisation"
+          description="Connectez une Action à une RÉAction et laissez la magie opérer"
+          action={{ label: "Créer une automatisation", onClick: () => setPage("creation") }}
         />
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="liste-verticale">
           {areas.map((area) => (
-            <AreaCard key={area.id} area={area} onToggle={() => toggleArea(area.id)} onDelete={() => deleteArea(area.id)} />
+            <CarteArea
+              key={area.id}
+              area={area}
+              onToggle={() => basculer(area.id)}
+              onDelete={() => supprimer(area.id)}
+            />
           ))}
         </div>
       )}
@@ -873,228 +832,163 @@ function ServicesPage({ subscribedServices, setSubscribedServices }) {
   );
 }
 
-// ─── Create Automation Page ───────────────────────────────────────────────────
+// ─── Page Création ────────────────────────────────────────────────────────────
 
-function CreatePage({ subscribedServices, setAreas, setPage }) {
-  const [step, setStep] = useState(0); // 0=pick action svc, 1=pick action, 2=pick reaction svc, 3=pick reaction, 4=name+confirm
-  const [selectedAction, setSelectedAction] = useState(null); // { service, action }
-  const [selectedReaction, setSelectedReaction] = useState(null);
-  const [name, setName] = useState("");
-  const [done, setDone] = useState(false);
+function PageCreation({ servicesSouscrits, setAreas, setPage }) {
+  const [etape, setEtape] = useState(0);
+  const [actionSelectionnee, setActionSelectionnee] = useState(null);
+  const [reactionSelectionnee, setReactionSelectionnee] = useState(null);
+  const [nom, setNom] = useState("");
+  const [termine, setTermine] = useState(false);
 
-  const connectedServices = SERVICES.filter(
-    (s) => subscribedServices.includes(s.id) || s.id === "timer"
+  const servicesConnectes = SERVICES.filter(
+    (s) => servicesSouscrits.includes(s.id) || s.id === "timer"
   );
-  const servicesWithActions = connectedServices.filter((s) => s.actions.length > 0);
-  const servicesWithReactions = connectedServices.filter((s) => s.reactions.length > 0);
+  const avecActions    = servicesConnectes.filter((s) => s.actions.length > 0);
+  const avecReactions  = servicesConnectes.filter((s) => s.reactions.length > 0);
 
-  const submit = () => {
+  const valider = () => {
     setAreas((prev) => [
       ...prev,
       {
         id: Date.now(),
-        name: name || `${selectedAction.service.name} → ${selectedReaction.service.name}`,
+        name: nom || `${actionSelectionnee.service.name} → ${reactionSelectionnee.service.name}`,
         active: true,
-        action: { service: selectedAction.service.id, name: selectedAction.action.name },
-        reaction: { service: selectedReaction.service.id, name: selectedReaction.action.name },
+        action:   { service: actionSelectionnee.service.id,   name: actionSelectionnee.action.name },
+        reaction: { service: reactionSelectionnee.service.id, name: reactionSelectionnee.action.name },
         runs: 0,
       },
     ]);
-    setDone(true);
-    setTimeout(() => setPage("automations"), 1800);
+    setTermine(true);
+    setTimeout(() => setPage("automatisations"), 1800);
   };
 
-  if (done) {
+  if (termine) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "60vh",
-          gap: 16,
-        }}
-      >
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: "50%",
-            background: "rgba(34,197,94,0.15)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 28,
-            animation: "none",
-          }}
-        >
-          ✓
-        </div>
-        <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 700 }}>Automation created!</h2>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>Redirecting…</p>
+      <div className="succes">
+        <div className="succes__icone">✓</div>
+        <h2 className="succes__titre">Automatisation créée !</h2>
+        <p className="succes__message">Redirection en cours…</p>
       </div>
     );
   }
 
-  const steps = ["Action service", "Action", "Reaction service", "Reaction", "Confirm"];
+  const etiquettesEtapes = ["Service déclencheur", "Action", "Service de réaction", "Réaction", "Confirmation"];
 
   return (
-    <div style={{ padding: "2rem", maxWidth: 680, margin: "0 auto" }}>
+    <div className="page-creation">
       <button
-        onClick={() => (step === 0 ? setPage("automations") : setStep(step - 1))}
-        style={{ background: "transparent", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 13, marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: 6 }}
+        onClick={() => (etape === 0 ? setPage("automatisations") : setEtape(etape - 1))}
+        className="bouton-retour"
       >
-        ← Back
+        ← Retour
       </button>
 
-      <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-        New automation
-      </h1>
+      <h1 className="page__titre">Nouvelle automatisation</h1>
 
-      {/* Step indicator */}
-      <div style={{ display: "flex", gap: 6, margin: "1.5rem 0 2rem" }}>
-        {steps.map((s, i) => (
-          <div key={s} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: "50%",
-                background: i < step ? "#6366f1" : i === step ? "rgba(99,102,241,0.2)" : "transparent",
-                border: i === step ? "1.5px solid #6366f1" : i < step ? "none" : "1.5px solid rgba(255,255,255,0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 11,
-                fontWeight: 700,
-                color: i <= step ? "#fff" : "#4b5563",
-              }}
-            >
-              {i < step ? "✓" : i + 1}
+      {/* Indicateur d'étapes */}
+      <div className="indicateur-etapes">
+        {etiquettesEtapes.map((s, i) => (
+          <div key={s} className="etape">
+            <div className={`etape__cercle ${i < etape ? "etape__cercle--passe" : i === etape ? "etape__cercle--actif" : "etape__cercle--futur"}`}>
+              {i < etape ? "✓" : i + 1}
             </div>
-            <span style={{ fontSize: 12, color: i === step ? "#fff" : "#4b5563", fontWeight: i === step ? 600 : 400, display: i < steps.length - 1 ? undefined : undefined }}>
+            <span className={i === etape ? "etape__label--actif" : "etape__label--inactif"}>
               {s}
             </span>
-            {i < steps.length - 1 && <span style={{ color: "#272733", marginLeft: 2 }}>—</span>}
+            {i < etiquettesEtapes.length - 1 && <span className="etape__separateur">—</span>}
           </div>
         ))}
       </div>
 
-      {/* Step 0: pick action service */}
-      {step === 0 && (
-        <StepSection title="Choose a trigger service">
-          {servicesWithActions.map((svc) => (
-            <ServicePickerCard
+      {/* Étape 0 : choisir le service déclencheur */}
+      {etape === 0 && (
+        <SectionEtape title="Choisissez un service déclencheur">
+          {avecActions.map((svc) => (
+            <CarteServicePicker
               key={svc.id}
               service={svc}
-              onClick={() => { setSelectedAction({ service: svc, action: null }); setStep(1); }}
+              onClick={() => { setActionSelectionnee({ service: svc, action: null }); setEtape(1); }}
             />
           ))}
-        </StepSection>
+        </SectionEtape>
       )}
 
-      {/* Step 1: pick action */}
-      {step === 1 && selectedAction && (
-        <StepSection title={`Choose an action from ${selectedAction.service.name}`}>
-          {selectedAction.service.actions.map((action) => (
-            <ActionPickerCard
+      {/* Étape 1 : choisir l'action */}
+      {etape === 1 && actionSelectionnee && (
+        <SectionEtape title={`Choisissez une action depuis ${actionSelectionnee.service.name}`}>
+          {actionSelectionnee.service.actions.map((action) => (
+            <CarteActionPicker
               key={action.id}
               action={action}
-              service={selectedAction.service}
-              onClick={() => { setSelectedAction({ ...selectedAction, action }); setStep(2); }}
+              service={actionSelectionnee.service}
+              onClick={() => { setActionSelectionnee({ ...actionSelectionnee, action }); setEtape(2); }}
             />
           ))}
-        </StepSection>
+        </SectionEtape>
       )}
 
-      {/* Step 2: pick reaction service */}
-      {step === 2 && (
-        <StepSection title="Choose a reaction service">
-          {servicesWithReactions.map((svc) => (
-            <ServicePickerCard
+      {/* Étape 2 : choisir le service de réaction */}
+      {etape === 2 && (
+        <SectionEtape title="Choisissez un service de réaction">
+          {avecReactions.map((svc) => (
+            <CarteServicePicker
               key={svc.id}
               service={svc}
-              onClick={() => { setSelectedReaction({ service: svc, action: null }); setStep(3); }}
+              onClick={() => { setReactionSelectionnee({ service: svc, action: null }); setEtape(3); }}
             />
           ))}
-        </StepSection>
+        </SectionEtape>
       )}
 
-      {/* Step 3: pick reaction */}
-      {step === 3 && selectedReaction && (
-        <StepSection title={`Choose a reaction from ${selectedReaction.service.name}`}>
-          {selectedReaction.service.reactions.map((action) => (
-            <ActionPickerCard
+      {/* Étape 3 : choisir la réaction */}
+      {etape === 3 && reactionSelectionnee && (
+        <SectionEtape title={`Choisissez une réaction depuis ${reactionSelectionnee.service.name}`}>
+          {reactionSelectionnee.service.reactions.map((action) => (
+            <CarteActionPicker
               key={action.id}
               action={action}
-              service={selectedReaction.service}
-              onClick={() => { setSelectedReaction({ ...selectedReaction, action }); setStep(4); }}
+              service={reactionSelectionnee.service}
+              onClick={() => { setReactionSelectionnee({ ...reactionSelectionnee, action }); setEtape(4); }}
             />
           ))}
-        </StepSection>
+        </SectionEtape>
       )}
 
-      {/* Step 4: confirm */}
-      {step === 4 && selectedAction?.action && selectedReaction?.action && (
+      {/* Étape 4 : confirmation */}
+      {etape === 4 && actionSelectionnee?.action && reactionSelectionnee?.action && (
         <div>
-          <div
-            style={{
-              background: "#111118",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 16,
-              padding: "1.5rem",
-              marginBottom: "1.5rem",
-              display: "flex",
-              alignItems: "center",
-              gap: 24,
-            }}
-          >
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <ServiceIcon service={selectedAction.service} size={48} />
-              <p style={{ margin: "10px 0 4px", fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Action</p>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#fff" }}>{selectedAction.action.name}</p>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6b7280" }}>{selectedAction.service.name}</p>
+          <div className="confirmation">
+            <div className="confirmation__bloc">
+              <ServiceIcon service={actionSelectionnee.service} size={48} />
+              <p className="confirmation__type">Action</p>
+              <p className="confirmation__nom">{actionSelectionnee.action.name}</p>
+              <p className="confirmation__service">{actionSelectionnee.service.name}</p>
             </div>
 
-            <div style={{ fontSize: 24, color: "#6366f1" }}>→</div>
+            <div className="confirmation__fleche">→</div>
 
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <ServiceIcon service={selectedReaction.service} size={48} />
-              <p style={{ margin: "10px 0 4px", fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Reaction</p>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#fff" }}>{selectedReaction.action.name}</p>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6b7280" }}>{selectedReaction.service.name}</p>
+            <div className="confirmation__bloc">
+              <ServiceIcon service={reactionSelectionnee.service} size={48} />
+              <p className="confirmation__type">Réaction</p>
+              <p className="confirmation__nom">{reactionSelectionnee.action.name}</p>
+              <p className="confirmation__service">{reactionSelectionnee.service.name}</p>
             </div>
           </div>
 
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#9ca3af", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Name your automation
-            </label>
+          <div className="confirmation__champ-groupe">
+            <label className="confirmation__champ-label">Nom de votre automatisation</label>
             <input
               type="text"
-              placeholder={`${selectedAction.service.name} → ${selectedReaction.service.name}`}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{ ...inputStyle, background: "#111118" }}
+              placeholder={`${actionSelectionnee.service.name} → ${reactionSelectionnee.service.name}`}
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              className="champ-input champ-input--sombre"
             />
           </div>
 
-          <button
-            onClick={submit}
-            style={{
-              width: "100%",
-              padding: "14px 0",
-              border: "none",
-              borderRadius: 12,
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "#fff",
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            Create automation ⚡
+          <button onClick={valider} className="bouton-creer">
+            Créer l'automatisation
           </button>
         </div>
       )}
@@ -1102,114 +996,49 @@ function CreatePage({ subscribedServices, setAreas, setPage }) {
   );
 }
 
-function StepSection({ title, children }) {
+function SectionEtape({ title, children }) {
   return (
     <div>
-      <h2 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 600, color: "#9ca3af" }}>{title}</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-        {children}
-      </div>
+      <h2 className="section-etape__titre">{title}</h2>
+      <div className="grille-etape">{children}</div>
     </div>
   );
 }
 
-function ServicePickerCard({ service, onClick }) {
+function CarteServicePicker({ service, onClick }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        background: "#111118",
-        border: "1px solid rgba(255,255,255,0.06)",
-        borderRadius: 14,
-        padding: "1.25rem",
-        cursor: "pointer",
-        textAlign: "left",
-        transition: "border-color 0.2s",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
+    <button onClick={onClick} className="carte-service-picker">
       <ServiceIcon service={service} size={40} />
       <div>
-        <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700, color: "#fff" }}>{service.name}</p>
-        <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>{service.description}</p>
+        <p className="carte-service-picker__nom">{service.name}</p>
+        <p className="carte-service-picker__desc">{service.description}</p>
       </div>
     </button>
   );
 }
 
-function ActionPickerCard({ action, service, onClick }) {
+function CarteActionPicker({ action, service, onClick }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        background: "#111118",
-        border: "1px solid rgba(255,255,255,0.06)",
-        borderRadius: 14,
-        padding: "1rem 1.25rem",
-        cursor: "pointer",
-        textAlign: "left",
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 12,
-        transition: "border-color 0.2s",
-      }}
-    >
-      <div
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: service.color,
-          marginTop: 5,
-          flexShrink: 0,
-        }}
-      />
+    <button onClick={onClick} className="carte-action-picker">
+      <div className="carte-action-picker__point" style={{ background: service.color }} />
       <div>
-        <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 600, color: "#fff" }}>{action.name}</p>
-        <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>{action.description}</p>
+        <p className="carte-action-picker__nom">{action.name}</p>
+        <p className="carte-action-picker__desc">{action.description}</p>
       </div>
     </button>
   );
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
+// ─── État vide ────────────────────────────────────────────────────────────────
 
-function EmptyState({ icon, title, description, action }) {
+function EtatVide({ icon, title, description, action }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "4rem 2rem",
-        background: "#111118",
-        border: "1px dashed rgba(255,255,255,0.1)",
-        borderRadius: 16,
-        textAlign: "center",
-        gap: 12,
-      }}
-    >
-      <div style={{ fontSize: 36, marginBottom: 4 }}>{icon}</div>
-      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#fff" }}>{title}</h3>
-      <p style={{ margin: 0, fontSize: 14, color: "#6b7280", maxWidth: 300 }}>{description}</p>
+    <div className="etat-vide">
+      <div className="etat-vide__icone">{icon}</div>
+      <h3 className="etat-vide__titre">{title}</h3>
+      <p className="etat-vide__desc">{description}</p>
       {action && (
-        <button
-          onClick={action.onClick}
-          style={{
-            marginTop: 8,
-            padding: "9px 20px",
-            border: "none",
-            borderRadius: 10,
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
+        <button onClick={action.onClick} className="etat-vide__bouton">
           {action.label}
         </button>
       )}
@@ -1217,38 +1046,35 @@ function EmptyState({ icon, title, description, action }) {
   );
 }
 
-// ─── App Root ─────────────────────────────────────────────────────────────────
+// ─── Racine de l'application ──────────────────────────────────────────────────
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [page, setPage] = useState("dashboard");
-  const [areas, setAreas] = useState(MOCK_AREAS);
-  const [subscribedServices, setSubscribedServices] = useState(["gmail", "github"]);
+  const [utilisateur, setUtilisateur] = useState(null);
+  const [page, setPage] = useState("tableau-de-bord");
+  const [areas, setAreas] = useState(AUTOMATISATIONS_DEMO);
+  const [servicesSouscrits, setServicesSouscrits] = useState(["gmail", "github"]);
 
-  if (!user) {
-    return <LoginPage onLogin={(u) => setUser(u)} />;
+  if (!utilisateur) {
+    return <PageConnexion onConnexion={(u) => setUtilisateur(u)} />;
   }
 
-  const pageComponents = {
-    dashboard: <DashboardPage areas={areas} setPage={setPage} subscribedServices={subscribedServices} />,
-    automations: <AutomationsPage areas={areas} setAreas={setAreas} setPage={setPage} />,
-    services: <ServicesPage subscribedServices={subscribedServices} setSubscribedServices={setSubscribedServices} />,
-    create: <CreatePage subscribedServices={subscribedServices} setAreas={setAreas} setPage={setPage} />,
+  const pages = {
+    "tableau-de-bord": <TableauDeBord areas={areas} setPage={setPage} servicesSouscrits={servicesSouscrits} />,
+    "automatisations":  <PageAutomatisations areas={areas} setAreas={setAreas} setPage={setPage} />,
+    "services":         <PageServices servicesSouscrits={servicesSouscrits} setServicesSouscrits={setServicesSouscrits} />,
+    "creation":         <PageCreation servicesSouscrits={servicesSouscrits} setAreas={setAreas} setPage={setPage} />,
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#0a0a0f",
-        fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif",
-        color: "#fff",
-      }}
-    >
-      <Sidebar page={page} setPage={setPage} user={user} onLogout={() => setUser(null)} />
-      <main style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
-        {pageComponents[page] || pageComponents.dashboard}
+    <div className="app-racine">
+      <BarreLatérale
+        page={page}
+        setPage={setPage}
+        utilisateur={utilisateur}
+        onDeconnexion={() => setUtilisateur(null)}
+      />
+      <main className="main-contenu">
+        {pages[page] || pages["tableau-de-bord"]}
       </main>
     </div>
   );
