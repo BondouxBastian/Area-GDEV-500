@@ -1,6 +1,9 @@
 # Dépendances
 node_modules/
 
+# Base de données SQLite (données locales, ne pas versionner)
+data/
+
 # Variables d'environnement (contient des secrets !)
 .env
 

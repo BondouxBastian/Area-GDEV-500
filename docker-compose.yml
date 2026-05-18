@@ -1,0 +1,44 @@
+services:
+
+  # ─── Backend (API REST) ─────────────────────────────────────────────────────
+  server:
+    build: ./area-backend
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-changez_en_production}
+      DB_PATH: /data/area.db
+      NODE_ENV: production
+    volumes:
+      - backend_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/about.json"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── Client mobile (stub APK) ───────────────────────────────────────────────
+  # Ce service compile l'application mobile et dépose l'APK sur le volume partagé.
+  # client_web le sert ensuite à l'URL /client.apk.
+  client_mobile:
+    build: ./area-mobile
+    volumes:
+      - mobile_apk:/output
+
+  # ─── Client web ─────────────────────────────────────────────────────────────
+  client_web:
+    build: ./area-frontend
+    ports:
+      - "8081:8081"
+    volumes:
+      # Le dossier /apk dans le conteneur nginx sert le fichier APK produit par client_mobile
+      - mobile_apk:/apk:ro
+    depends_on:
+      - server
+      - client_mobile
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+  mobile_apk:

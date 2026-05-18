@@ -1,128 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import "./App.css";
+import * as api from "./api";
 
-// ─── Données des services ──────────────────────────────────────────────────────
+// Métadonnées visuelles des services (couleur, icône).
+// Séparées des données métier qui viennent du serveur.
+const SERVICE_VISUAL = {
+  gmail:   { color: "#EA4335", icon: "✉" },
+  github:  { color: "#24292F", icon: "⌥" },
+  discord: { color: "#5865F2", icon: "◈" },
+  timer:   { color: "#F59E0B", icon: "◷" },
+  notion:  { color: "#000000", icon: "▣" },
+};
 
-const SERVICES = [
-  {
-    id: "gmail",
-    name: "Gmail",
-    color: "#EA4335",
-    icon: "✉",
-    description: "E-mails, libellés, pièces jointes",
-    actions: [
-      { id: "new_email",    name: "Nouvel e-mail reçu",            description: "Se déclenche à la réception d'un e-mail" },
-      { id: "email_from",  name: "E-mail d'un expéditeur précis",  description: "Se déclenche sur un e-mail d'une adresse donnée" },
-      { id: "email_label", name: "E-mail étiqueté",                description: "Se déclenche quand un e-mail reçoit un libellé" },
-    ],
-    reactions: [
-      { id: "send_email",    name: "Envoyer un e-mail",  description: "Envoie un e-mail à un destinataire" },
-      { id: "create_draft",  name: "Créer un brouillon", description: "Crée un brouillon d'e-mail" },
-    ],
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    color: "#24292F",
-    icon: "⌥",
-    description: "Dépôts, issues, pull requests",
-    actions: [
-      { id: "new_issue", name: "Nouvelle issue ouverte",  description: "Se déclenche à l'ouverture d'une issue" },
-      { id: "new_pr",    name: "Nouvelle pull request",   description: "Se déclenche à la création d'une PR" },
-      { id: "pr_merged", name: "Pull request fusionnée",  description: "Se déclenche lors de la fusion d'une PR" },
-    ],
-    reactions: [
-      { id: "create_issue", name: "Créer une issue",            description: "Crée une nouvelle issue sur un dépôt" },
-      { id: "add_label",    name: "Ajouter un label à une issue", description: "Ajoute un label à une issue existante" },
-    ],
-  },
-  {
-    id: "discor",
-    name: "Discor",
-    color: "#5865F2",
-    icon: "◈",
-    description: "Messages, canaux, serveurs",
-    actions: [
-      { id: "new_message", name: "Nouveau message dans un canal", description: "Se déclenche sur un nouveau message" },
-      { id: "new_member",  name: "Nouveau membre du serveur",     description: "Se déclenche quand quelqu'un rejoint" },
-    ],
-    reactions: [
-      { id: "send_message", name: "Envoyer un message", description: "Publie un message dans un canal" },
-      { id: "send_dm",      name: "Envoyer un MP",      description: "Envoie un message privé à un utilisateur" },
-    ],
-  },
-  {
-    id: "timer",
-    name: "Minuteur",
-    color: "#F59E0B",
-    icon: "◷",
-    description: "Planifications, dates, heures",
-    actions: [
-      { id: "every_day",     name: "Chaque jour à une heure",    description: "Se déclenche quotidiennement à l'heure définie" },
-      { id: "every_hour",    name: "Toutes les X heures",        description: "Se déclenche à intervalle régulier" },
-      { id: "specific_date", name: "À une date précise",         description: "Se déclenche à une date/heure donnée" },
-    ],
-    reactions: [],
-  },
-  {
-    id: "notion",
-    name: "Notion",
-    color: "#000000",
-    icon: "▣",
-    description: "Pages, bases de données, blocs",
-    actions: [
-      { id: "new_page", name: "Nouvelle page créée",       description: "Se déclenche à la création d'une page" },
-      { id: "db_item",  name: "Nouvel élément en base",    description: "Se déclenche à l'ajout d'une entrée en BDD" },
-    ],
-    reactions: [
-      { id: "create_page",  name: "Créer une page",              description: "Crée une nouvelle page Notion" },
-      { id: "add_db_item",  name: "Ajouter un élément en base",  description: "Ajoute une ligne dans une base de données" },
-    ],
-  },
-];
+// Décode le payload d'un JWT sans vérifier la signature.
+// Utile côté client pour récupérer les infos utilisateur sans appel réseau.
+function decoderJWT(token) {
+  try {
+    return JSON.parse(atob(token.split(".")[1]));
+  } catch {
+    return null;
+  }
+}
 
-const AUTOMATISATIONS_DEMO = [
-  {
-    id: 1,
-    name: "Issue GitHub → Alerte Discord",
-    active: true,
-    action:   { service: "github", name: "Nouvelle issue ouverte" },
-    reaction: { service: "discor", name: "Envoyer un message" },
-    runs: 24,
-  },
-  {
-    id: 2,
-    name: "Récapitulatif quotidien par e-mail",
-    active: false,
-    action:   { service: "timer", name: "Chaque jour à une heure" },
-    reaction: { service: "gmail", name: "Envoyer un e-mail" },
-    runs: 7,
-  },
-];
-
-// ─── Utilitaires ──────────────────────────────────────────────────────────────
-
-const getService = (id) => SERVICES.find((s) => s.id === id);
+// Enrichit les services reçus de l'API avec les métadonnées visuelles locales.
+function enrichirService(svc) {
+  const visual = SERVICE_VISUAL[svc.id] || {};
+  return { ...svc, color: visual.color || "#6366f1", icon: visual.icon || "◈" };
+}
 
 // ─── Composants communs ───────────────────────────────────────────────────────
 
 function Badge({ children, color = "#6366f1" }) {
   return (
-    <span
-      className="badge"
-      style={{ background: color + "20", color }}
-    >
+    <span className="badge" style={{ background: color + "20", color }}>
       {children}
     </span>
   );
 }
 
-function Toggle({ value, onChange }) {
+function Toggle({ value, onChange, disabled }) {
   return (
     <button
-      onClick={() => onChange(!value)}
+      onClick={() => !disabled && onChange(!value)}
       aria-checked={value}
       role="switch"
+      disabled={disabled}
       className={`toggle ${value ? "toggle--actif" : "toggle--inactif"}`}
     >
       <span className={`toggle__curseur ${value ? "toggle__curseur--actif" : "toggle__curseur--inactif"}`} />
@@ -131,21 +53,23 @@ function Toggle({ value, onChange }) {
 }
 
 function ServiceIcon({ service, size = 36 }) {
-  const svc = typeof service === "string" ? getService(service) : service;
-  if (!svc) return null;
+  if (!service) return null;
+  const svc = typeof service === "string"
+    ? { color: SERVICE_VISUAL[service]?.color || "#6366f1", icon: SERVICE_VISUAL[service]?.icon || "◈" }
+    : service;
   return (
     <div
       className="service-icone"
-      style={{
-        width: size,
-        height: size,
-        background: svc.color,
-        fontSize: size * 0.45,
-      }}
+      style={{ width: size, height: size, background: svc.color, fontSize: size * 0.45 }}
     >
       {svc.icon}
     </div>
   );
+}
+
+function MessageErreur({ message }) {
+  if (!message) return null;
+  return <div className="page-connexion__erreur">{message}</div>;
 }
 
 // ─── Page de connexion ────────────────────────────────────────────────────────
@@ -156,27 +80,41 @@ function PageConnexion({ onConnexion }) {
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState("");
 
-  const soumettre = () => {
+  const soumettre = async () => {
     if (!form.email || !form.motDePasse) {
       setErreur("Veuillez remplir tous les champs.");
       return;
     }
     setChargement(true);
     setErreur("");
-    setTimeout(() => {
+    try {
+      let data;
+      if (mode === "connexion") {
+        data = await api.login(form.email, form.motDePasse);
+      } else {
+        if (!form.nom) {
+          setErreur("Le nom est requis.");
+          setChargement(false);
+          return;
+        }
+        data = await api.register(form.nom, form.email, form.motDePasse);
+      }
+      localStorage.setItem("area_token", data.token);
+      onConnexion(data.user);
+    } catch (err) {
+      // Le message d'erreur vient du serveur (identifiants invalides, email déjà pris…)
+      setErreur(err.message.replace(/^\d{3} /, ""));
+    } finally {
       setChargement(false);
-      onConnexion({ email: form.email, name: form.nom || form.email.split("@")[0] });
-    }, 900);
+    }
   };
 
   return (
     <div className="page-connexion">
-      {/* Grille d'arrière-plan */}
       <div className="page-connexion__grille" />
       <div className="page-connexion__halo" />
 
       <div className="page-connexion__carte">
-        {/* Logo */}
         <div className="page-connexion__logo">
           <div className="page-connexion__logo-wrapper">
             <div className="page-connexion__logo-icone">A</div>
@@ -187,9 +125,7 @@ function PageConnexion({ onConnexion }) {
           </p>
         </div>
 
-        {/* Carte */}
         <div className="page-connexion__formulaire">
-          {/* Onglets */}
           <div className="page-connexion__onglets">
             {["connexion", "inscription"].map((m) => (
               <button
@@ -202,7 +138,6 @@ function PageConnexion({ onConnexion }) {
             ))}
           </div>
 
-          {/* Champs */}
           {mode === "inscription" && (
             <div className="page-connexion__champ-groupe">
               <label className="page-connexion__label">Nom</label>
@@ -239,7 +174,7 @@ function PageConnexion({ onConnexion }) {
             />
           </div>
 
-          {erreur && <div className="page-connexion__erreur">{erreur}</div>}
+          <MessageErreur message={erreur} />
 
           <button
             onClick={soumettre}
@@ -258,7 +193,7 @@ function PageConnexion({ onConnexion }) {
               {["Google", "GitHub"].map((p) => (
                 <button
                   key={p}
-                  onClick={() => onConnexion({ email: `user@${p.toLowerCase()}.com`, name: "Utilisateur OAuth" })}
+                  onClick={() => setErreur(`La connexion ${p} nécessite la configuration d'une application OAuth.`)}
                   className="page-connexion__bouton-oauth"
                 >
                   {p}
@@ -276,21 +211,19 @@ function PageConnexion({ onConnexion }) {
 
 function BarreLatérale({ page, setPage, utilisateur, onDeconnexion }) {
   const items = [
-    { id: "tableau-de-bord", label: "Tableau de bord", icon: "⊞" },
-    { id: "automatisations",  label: "Automatisations",  icon: "⚡" },
-    { id: "services",         label: "Services",          icon: "◈" },
-    { id: "creation",         label: "Nouvelle automation", icon: "＋", accent: true },
+    { id: "tableau-de-bord",  label: "Tableau de bord",    icon: "" },
+    { id: "automatisations",  label: "Automatisations",    icon: "" },
+    { id: "services",         label: "Services",           icon: "" },
+    { id: "creation",         label: "Nouvelle automation", icon: "", accent: true },
   ];
 
   return (
     <aside className="sidebar">
-      {/* Logo */}
       <div className="sidebar__logo">
         <div className="sidebar__logo-icone">A</div>
         <span className="sidebar__logo-texte">AREA</span>
       </div>
 
-      {/* Navigation */}
       <nav className="sidebar__nav">
         {items.map((item) => {
           let cls = "sidebar__nav-btn ";
@@ -307,7 +240,6 @@ function BarreLatérale({ page, setPage, utilisateur, onDeconnexion }) {
         })}
       </nav>
 
-      {/* Utilisateur */}
       <div className="sidebar__utilisateur">
         <div className="sidebar__utilisateur-avatar">
           {utilisateur.name[0].toUpperCase()}
@@ -331,10 +263,10 @@ function TableauDeBord({ areas, setPage, servicesSouscrits }) {
   const actives = areas.filter((a) => a.active).length;
 
   const stats = [
-    { label: "Automatisations", value: areas.length,              icon: "⚡" },
-    { label: "Actives",         value: actives,                   icon: "●" },
-    { label: "Exécutions",      value: totalExecutions,           icon: "↺" },
-    { label: "Services",        value: servicesSouscrits.length,  icon: "◈" },
+    { label: "Automatisations", value: areas.length,             icon: "" },
+    { label: "Actives",         value: actives,                  icon: "●" },
+    { label: "Exécutions",      value: totalExecutions,          icon: "↺" },
+    { label: "Services",        value: servicesSouscrits.length, icon: "◈" },
   ];
 
   return (
@@ -344,7 +276,6 @@ function TableauDeBord({ areas, setPage, servicesSouscrits }) {
         <p className="page__sous-titre">Vue d'ensemble de vos automatisations</p>
       </div>
 
-      {/* Statistiques */}
       <div className="stats-grille">
         {stats.map((s) => (
           <div key={s.label} className="stat-carte">
@@ -355,7 +286,6 @@ function TableauDeBord({ areas, setPage, servicesSouscrits }) {
         ))}
       </div>
 
-      {/* Automatisations récentes */}
       <div className="section">
         <div className="section__entete">
           <h2 className="section__titre">Automatisations récentes</h2>
@@ -380,12 +310,11 @@ function TableauDeBord({ areas, setPage, servicesSouscrits }) {
         )}
       </div>
 
-      {/* Démarrage rapide */}
       <div>
         <h2 className="section__titre" style={{ marginBottom: "1rem" }}>Démarrage rapide</h2>
         <div className="demarrage-rapide">
           {[
-            { title: "GitHub → Discord", desc: "Alertez votre équipe sur les nouvelles issues", action: "github", reaction: "discor" },
+            { title: "GitHub → Discord", desc: "Alertez votre équipe sur les nouvelles issues", action: "github", reaction: "discord" },
             { title: "Minuteur → Gmail",  desc: "Envoyez des récapitulatifs quotidiens",         action: "timer",  reaction: "gmail" },
             { title: "Gmail → Notion",    desc: "Sauvegardez vos e-mails dans une base",         action: "gmail",  reaction: "notion" },
           ].map((t) => (
@@ -407,8 +336,25 @@ function TableauDeBord({ areas, setPage, servicesSouscrits }) {
 // ─── Page Automatisations ─────────────────────────────────────────────────────
 
 function PageAutomatisations({ areas, setAreas, setPage }) {
-  const basculer = (id) => setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a)));
-  const supprimer = (id) => setAreas((prev) => prev.filter((a) => a.id !== id));
+  const [erreur, setErreur] = useState("");
+
+  const basculer = async (id, actuel) => {
+    try {
+      const updated = await api.toggleArea(id, !actuel);
+      setAreas((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    } catch {
+      setErreur("Impossible de modifier l'automatisation.");
+    }
+  };
+
+  const supprimer = async (id) => {
+    try {
+      await api.deleteArea(id);
+      setAreas((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      setErreur("Impossible de supprimer l'automatisation.");
+    }
+  };
 
   return (
     <div className="page">
@@ -424,9 +370,11 @@ function PageAutomatisations({ areas, setAreas, setPage }) {
         </button>
       </div>
 
+      <MessageErreur message={erreur} />
+
       {areas.length === 0 ? (
         <EtatVide
-          icon="⚡"
+          icon=""
           title="Aucune automatisation"
           description="Connectez une Action à une RÉAction et laissez la magie opérer"
           action={{ label: "Créer une automatisation", onClick: () => setPage("creation") }}
@@ -437,7 +385,7 @@ function PageAutomatisations({ areas, setAreas, setPage }) {
             <CarteArea
               key={area.id}
               area={area}
-              onToggle={() => basculer(area.id)}
+              onToggle={() => basculer(area.id, area.active)}
               onDelete={() => supprimer(area.id)}
             />
           ))}
@@ -488,11 +436,25 @@ function CarteArea({ area, compact = false, onToggle, onDelete }) {
 
 // ─── Page Services ────────────────────────────────────────────────────────────
 
-function PageServices({ servicesSouscrits, setServicesSouscrits }) {
-  const basculer = (id) => {
-    setServicesSouscrits((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
+function PageServices({ services, onBasculer }) {
+  const [chargement, setChargement] = useState(null);
+  const [erreur, setErreur] = useState("");
+
+  const basculer = async (id, estConnecte) => {
+    setChargement(id);
+    setErreur("");
+    try {
+      if (estConnecte) {
+        await api.unsubscribeService(id);
+      } else {
+        await api.subscribeService(id, null);
+      }
+      onBasculer(id, !estConnecte);
+    } catch {
+      setErreur("Impossible de modifier la souscription.");
+    } finally {
+      setChargement(null);
+    }
   };
 
   return (
@@ -504,38 +466,41 @@ function PageServices({ servicesSouscrits, setServicesSouscrits }) {
         </p>
       </div>
 
+      <MessageErreur message={erreur} />
+
       <div className="services-grille">
-        {SERVICES.map((svc) => {
-          const connecte = servicesSouscrits.includes(svc.id);
-          return (
-            <div
-              key={svc.id}
-              className="carte-service"
-              style={{ border: connecte ? `1px solid ${svc.color}40` : "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <div className="carte-service__entete">
-                <ServiceIcon service={svc} size={44} />
-                <Toggle value={connecte} onChange={() => basculer(svc.id)} />
-              </div>
-              <p className="carte-service__nom">{svc.name}</p>
-              <p className="carte-service__desc">{svc.description}</p>
-
-              <div className="carte-service__badges">
-                <Badge color="#6366f1">{svc.actions.length} action{svc.actions.length !== 1 ? "s" : ""}</Badge>
-                <Badge color="#8b5cf6">{svc.reactions.length} réaction{svc.reactions.length !== 1 ? "s" : ""}</Badge>
-              </div>
-
-              {connecte && (
-                <div className="carte-service__connexion">
-                  <p className="carte-service__connexion-texte">
-                    <span className="carte-service__connexion-point" />
-                    Connecté
-                  </p>
-                </div>
-              )}
+        {services.map((svc) => (
+          <div
+            key={svc.id}
+            className="carte-service"
+            style={{ border: svc.subscribed ? `1px solid ${svc.color}40` : "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <div className="carte-service__entete">
+              <ServiceIcon service={svc} size={44} />
+              <Toggle
+                value={svc.subscribed}
+                onChange={() => basculer(svc.id, svc.subscribed)}
+                disabled={chargement === svc.id}
+              />
             </div>
-          );
-        })}
+            <p className="carte-service__nom">{svc.name}</p>
+            <p className="carte-service__desc">{svc.description}</p>
+
+            <div className="carte-service__badges">
+              <Badge color="#6366f1">{svc.actions.length} action{svc.actions.length !== 1 ? "s" : ""}</Badge>
+              <Badge color="#8b5cf6">{svc.reactions.length} réaction{svc.reactions.length !== 1 ? "s" : ""}</Badge>
+            </div>
+
+            {svc.subscribed && (
+              <div className="carte-service__connexion">
+                <p className="carte-service__connexion-texte">
+                  <span className="carte-service__connexion-point" />
+                  Connecté
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -543,33 +508,43 @@ function PageServices({ servicesSouscrits, setServicesSouscrits }) {
 
 // ─── Page Création ────────────────────────────────────────────────────────────
 
-function PageCreation({ servicesSouscrits, setAreas, setPage }) {
+function PageCreation({ services, setAreas, setPage }) {
   const [etape, setEtape] = useState(0);
   const [actionSelectionnee, setActionSelectionnee] = useState(null);
   const [reactionSelectionnee, setReactionSelectionnee] = useState(null);
   const [nom, setNom] = useState("");
+  const [chargement, setChargement] = useState(false);
+  const [erreur, setErreur] = useState("");
   const [termine, setTermine] = useState(false);
 
-  const servicesConnectes = SERVICES.filter(
-    (s) => servicesSouscrits.includes(s.id) || s.id === "timer"
-  );
-  const avecActions    = servicesConnectes.filter((s) => s.actions.length > 0);
-  const avecReactions  = servicesConnectes.filter((s) => s.reactions.length > 0);
+  const avecActions   = services.filter((s) => s.actions.length > 0);
+  const avecReactions = services.filter((s) => s.reactions.length > 0);
 
-  const valider = () => {
-    setAreas((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: nom || `${actionSelectionnee.service.name} → ${reactionSelectionnee.service.name}`,
-        active: true,
-        action:   { service: actionSelectionnee.service.id,   name: actionSelectionnee.action.name },
-        reaction: { service: reactionSelectionnee.service.id, name: reactionSelectionnee.action.name },
-        runs: 0,
-      },
-    ]);
-    setTermine(true);
-    setTimeout(() => setPage("automatisations"), 1800);
+  const valider = async () => {
+    setChargement(true);
+    setErreur("");
+    try {
+      const nouvelleArea = await api.createArea({
+        name: nom.trim() || undefined,
+        action: {
+          service: actionSelectionnee.service.id,
+          id: actionSelectionnee.action.id,
+          config: {},
+        },
+        reaction: {
+          service: reactionSelectionnee.service.id,
+          id: reactionSelectionnee.action.id,
+          config: {},
+        },
+      });
+      setAreas((prev) => [nouvelleArea, ...prev]);
+      setTermine(true);
+      setTimeout(() => setPage("automatisations"), 1800);
+    } catch (err) {
+      setErreur(err.message.replace(/^\d{3} /, ""));
+    } finally {
+      setChargement(false);
+    }
   };
 
   if (termine) {
@@ -595,7 +570,6 @@ function PageCreation({ servicesSouscrits, setAreas, setPage }) {
 
       <h1 className="page__titre">Nouvelle automatisation</h1>
 
-      {/* Indicateur d'étapes */}
       <div className="indicateur-etapes">
         {etiquettesEtapes.map((s, i) => (
           <div key={s} className="etape">
@@ -610,7 +584,6 @@ function PageCreation({ servicesSouscrits, setAreas, setPage }) {
         ))}
       </div>
 
-      {/* Étape 0 : choisir le service déclencheur */}
       {etape === 0 && (
         <SectionEtape title="Choisissez un service déclencheur">
           {avecActions.map((svc) => (
@@ -623,7 +596,6 @@ function PageCreation({ servicesSouscrits, setAreas, setPage }) {
         </SectionEtape>
       )}
 
-      {/* Étape 1 : choisir l'action */}
       {etape === 1 && actionSelectionnee && (
         <SectionEtape title={`Choisissez une action depuis ${actionSelectionnee.service.name}`}>
           {actionSelectionnee.service.actions.map((action) => (
@@ -637,7 +609,6 @@ function PageCreation({ servicesSouscrits, setAreas, setPage }) {
         </SectionEtape>
       )}
 
-      {/* Étape 2 : choisir le service de réaction */}
       {etape === 2 && (
         <SectionEtape title="Choisissez un service de réaction">
           {avecReactions.map((svc) => (
@@ -650,7 +621,6 @@ function PageCreation({ servicesSouscrits, setAreas, setPage }) {
         </SectionEtape>
       )}
 
-      {/* Étape 3 : choisir la réaction */}
       {etape === 3 && reactionSelectionnee && (
         <SectionEtape title={`Choisissez une réaction depuis ${reactionSelectionnee.service.name}`}>
           {reactionSelectionnee.service.reactions.map((action) => (
@@ -664,7 +634,6 @@ function PageCreation({ servicesSouscrits, setAreas, setPage }) {
         </SectionEtape>
       )}
 
-      {/* Étape 4 : confirmation */}
       {etape === 4 && actionSelectionnee?.action && reactionSelectionnee?.action && (
         <div>
           <div className="confirmation">
@@ -696,8 +665,10 @@ function PageCreation({ servicesSouscrits, setAreas, setPage }) {
             />
           </div>
 
-          <button onClick={valider} className="bouton-creer">
-            Créer l'automatisation
+          <MessageErreur message={erreur} />
+
+          <button onClick={valider} disabled={chargement} className="bouton-creer">
+            {chargement ? "Création en cours…" : "Créer l'automatisation"}
           </button>
         </div>
       )}
@@ -760,18 +731,87 @@ function EtatVide({ icon, title, description, action }) {
 export default function App() {
   const [utilisateur, setUtilisateur] = useState(null);
   const [page, setPage] = useState("tableau-de-bord");
-  const [areas, setAreas] = useState(AUTOMATISATIONS_DEMO);
-  const [servicesSouscrits, setServicesSouscrits] = useState(["gmail", "github"]);
+  const [areas, setAreas] = useState([]);
+  const [services, setServices] = useState([]);
+  const [chargementInitial, setChargementInitial] = useState(true);
 
-  if (!utilisateur) {
-    return <PageConnexion onConnexion={(u) => setUtilisateur(u)} />;
+  // Charge les données de l'utilisateur (areas + services) après connexion
+  const chargerDonnees = useCallback(async () => {
+    try {
+      const [areasData, servicesData] = await Promise.all([
+        api.getAreas(),
+        api.getServices(),
+      ]);
+      setAreas(areasData);
+      setServices(servicesData.map(enrichirService));
+    } catch {
+      // En cas d'erreur réseau, on reste sur des listes vides
+    }
+  }, []);
+
+  // Restaure la session depuis le token stocké dans le localStorage
+  useEffect(() => {
+    const token = localStorage.getItem("area_token");
+    if (token) {
+      const payload = decoderJWT(token);
+      // On vérifie que le token n'est pas expiré
+      if (payload && payload.exp * 1000 > Date.now()) {
+        setUtilisateur({ id: payload.sub, email: payload.email, name: payload.email.split("@")[0] });
+      } else {
+        localStorage.removeItem("area_token");
+      }
+    }
+    setChargementInitial(false);
+  }, []);
+
+  // Dès qu'un utilisateur est identifié, on charge ses données
+  useEffect(() => {
+    if (utilisateur) chargerDonnees();
+  }, [utilisateur, chargerDonnees]);
+
+  const seConnecter = (user) => {
+    setUtilisateur(user);
+    setPage("tableau-de-bord");
+  };
+
+  const seDeconnecter = () => {
+    localStorage.removeItem("area_token");
+    setUtilisateur(null);
+    setAreas([]);
+    setServices([]);
+    setPage("tableau-de-bord");
+  };
+
+  // Met à jour l'état de souscription d'un service sans refetch complet
+  const basculerService = (serviceId, nouvelEtat) => {
+    setServices((prev) =>
+      prev.map((s) => (s.id === serviceId ? { ...s, subscribed: nouvelEtat } : s))
+    );
+  };
+
+  if (chargementInitial) {
+    return <div className="page-connexion"><div className="page-connexion__halo" /></div>;
   }
 
+  if (!utilisateur) {
+    return <PageConnexion onConnexion={seConnecter} />;
+  }
+
+  const servicesSouscrits = services.filter((s) => s.subscribed);
+
   const pages = {
-    "tableau-de-bord": <TableauDeBord areas={areas} setPage={setPage} servicesSouscrits={servicesSouscrits} />,
-    "automatisations":  <PageAutomatisations areas={areas} setAreas={setAreas} setPage={setPage} />,
-    "services":         <PageServices servicesSouscrits={servicesSouscrits} setServicesSouscrits={setServicesSouscrits} />,
-    "creation":         <PageCreation servicesSouscrits={servicesSouscrits} setAreas={setAreas} setPage={setPage} />,
+    "tableau-de-bord": (
+      <TableauDeBord areas={areas} setPage={setPage} servicesSouscrits={servicesSouscrits} />
+    ),
+    "automatisations": (
+      <PageAutomatisations areas={areas} setAreas={setAreas} setPage={setPage} />
+    ),
+    "services": (
+      <PageServices services={services} onBasculer={basculerService} />
+    ),
+    "creation": (
+      <PageCreation services={services} setAreas={setAreas} setPage={setPage} />
+    ),
   };
 
   return (
@@ -780,7 +820,7 @@ export default function App() {
         page={page}
         setPage={setPage}
         utilisateur={utilisateur}
-        onDeconnexion={() => setUtilisateur(null)}
+        onDeconnexion={seDeconnecter}
       />
       <main className="main-contenu">
         {pages[page] || pages["tableau-de-bord"]}
