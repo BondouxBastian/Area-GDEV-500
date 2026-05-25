@@ -5,165 +5,206 @@ const db = require('../db');
 
 const router = express.Router();
 
-// Durée de validité des tokens JWT
 const TOKEN_EXPIRY = '7d';
 
 // Génère un JWT signé pour l'utilisateur donné
 function genererToken(user) {
   return jwt.sign(
-    { sub: user.id, email: user.email },
+    { sub: user.id, email: user.email, name: user.name, is_admin: user.is_admin || 0 },
     process.env.JWT_SECRET,
     { expiresIn: TOKEN_EXPIRY }
   );
 }
 
-// Formate la réponse utilisateur renvoyée au client (on n'expose jamais le hash)
 function formaterUser(user) {
-  return { id: user.id, name: user.name, email: user.email };
+  return { id: user.id, name: user.name, email: user.email, is_admin: !!user.is_admin };
 }
 
-// POST /auth/register
-// Crée un compte avec email + mot de passe.
+// ─── Email / Mot de passe ─────────────────────────────────────────────────────
+
 router.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
+  if (!name || !email || !password)
     return res.status(400).json({ error: 'Nom, e-mail et mot de passe sont requis.' });
-  }
-  if (password.length < 6) {
+  if (password.length < 6)
     return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères.' });
-  }
 
   const existant = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (existant) {
+  if (existant)
     return res.status(409).json({ error: 'Un compte existe déjà avec cet e-mail.' });
-  }
 
   const hash = await bcrypt.hash(password, 12);
-
-  const result = db.prepare(
-    'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)'
-  ).run(name, email, hash);
-
+  const result = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(name, email, hash);
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json({ token: genererToken(user), user: formaterUser(user) });
 });
 
-// POST /auth/login
-// Authentification classique email + mot de passe.
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
+  if (!email || !password)
     return res.status(400).json({ error: 'E-mail et mot de passe sont requis.' });
-  }
 
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  if (!user || !user.password_hash) {
-    // On renvoie la même erreur pour ne pas révéler si l'adresse existe
+  if (!user || !user.password_hash)
     return res.status(401).json({ error: 'Identifiants invalides.' });
-  }
 
   const valide = await bcrypt.compare(password, user.password_hash);
-  if (!valide) {
+  if (!valide)
     return res.status(401).json({ error: 'Identifiants invalides.' });
-  }
 
   res.json({ token: genererToken(user), user: formaterUser(user) });
 });
 
-// POST /auth/oauth/:provider
-// Connexion via un fournisseur OAuth (Google, GitHub...).
-// Le client effectue le flux OAuth côté navigateur et nous transmet le token d'accès.
-// On récupère les infos de l'utilisateur auprès du fournisseur, puis on crée
-// ou met à jour le compte local correspondant.
-router.post('/oauth/:provider', async (req, res) => {
+// ─── OAuth — initiation ───────────────────────────────────────────────────────
+// Le backend construit l'URL d'autorisation et redirige le navigateur vers le
+// fournisseur. Le secret ne quitte jamais le serveur.
+
+router.get('/oauth/:provider/init', (req, res) => {
   const { provider } = req.params;
-  const { token: accessToken } = req.body;
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8081';
 
-  if (!accessToken) {
-    return res.status(400).json({ error: 'Token OAuth manquant.' });
-  }
-
-  const fournisseursSupports = ['google', 'github'];
-  if (!fournisseursSupports.includes(provider)) {
-    return res.status(400).json({ error: `Fournisseur "${provider}" non pris en charge.` });
-  }
-
-  try {
-    const infos = await recupererInfosOAuth(provider, accessToken);
-
-    // Cherche un compte OAuth existant pour ce fournisseur + identifiant
-    let oauthRow = db.prepare(
-      'SELECT * FROM user_oauth WHERE provider = ? AND provider_user_id = ?'
-    ).get(provider, infos.providerId);
-
-    let user;
-
-    if (oauthRow) {
-      // Le fournisseur est déjà lié à un compte : on met à jour le token
-      db.prepare('UPDATE user_oauth SET access_token = ? WHERE id = ?')
-        .run(accessToken, oauthRow.id);
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(oauthRow.user_id);
-    } else {
-      // Nouvelle liaison : on cherche un compte par e-mail, ou on en crée un
-      user = db.prepare('SELECT * FROM users WHERE email = ?').get(infos.email);
-
-      if (!user) {
-        const result = db.prepare(
-          'INSERT INTO users (name, email) VALUES (?, ?)'
-        ).run(infos.name, infos.email);
-        user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
-      }
-
-      db.prepare(
-        'INSERT INTO user_oauth (user_id, provider, provider_user_id, access_token) VALUES (?, ?, ?, ?)'
-      ).run(user.id, provider, infos.providerId, accessToken);
-    }
-
-    res.json({ token: genererToken(user), user: formaterUser(user) });
-  } catch (err) {
-    console.error(`Erreur OAuth ${provider}:`, err.message);
-    res.status(401).json({ error: 'Authentification OAuth échouée.' });
-  }
-});
-
-// Interroge l'API du fournisseur pour obtenir les informations de l'utilisateur connecté.
-// Retourne { providerId, email, name }.
-async function recupererInfosOAuth(provider, accessToken) {
   if (provider === 'google') {
-    const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    if (!process.env.GOOGLE_CLIENT_ID)
+      return res.status(500).json({ error: 'GOOGLE_CLIENT_ID non configuré.' });
+
+    const params = new URLSearchParams({
+      client_id:     process.env.GOOGLE_CLIENT_ID,
+      redirect_uri:  `${req.protocol}://${req.get('host')}/auth/oauth/google/callback`,
+      response_type: 'code',
+      scope:         'openid email profile',
+      access_type:   'offline',
+      prompt:        'select_account',
     });
-    if (!resp.ok) throw new Error('Réponse Google invalide');
-    const data = await resp.json();
-    return { providerId: data.sub, email: data.email, name: data.name };
+    return res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
   }
 
   if (provider === 'github') {
-    const resp = await fetch('https://api.github.com/user', {
-      headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'AREA-App' },
-    });
-    if (!resp.ok) throw new Error('Réponse GitHub invalide');
-    const data = await resp.json();
+    if (!process.env.GITHUB_CLIENT_ID)
+      return res.status(500).json({ error: 'GITHUB_CLIENT_ID non configuré.' });
 
-    // L'e-mail peut être null si l'utilisateur l'a masqué dans ses paramètres GitHub
-    let email = data.email;
+    const params = new URLSearchParams({
+      client_id:    process.env.GITHUB_CLIENT_ID,
+      redirect_uri: `${req.protocol}://${req.get('host')}/auth/oauth/github/callback`,
+      scope:        'read:user user:email',
+    });
+    return res.redirect(`https://github.com/login/oauth/authorize?${params}`);
+  }
+
+  res.redirect(`${FRONTEND_URL}?oauth_error=Fournisseur+non+supporté`);
+});
+
+// ─── OAuth — callback ─────────────────────────────────────────────────────────
+// Google / GitHub redirige ici après que l'utilisateur a accepté.
+// On échange le code contre un token, on crée ou récupère l'utilisateur,
+// puis on redirige le frontend avec le JWT dans l'URL.
+
+router.get('/oauth/:provider/callback', async (req, res) => {
+  const { provider } = req.params;
+  const { code, error } = req.query;
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8081';
+
+  if (error || !code) {
+    return res.redirect(`${FRONTEND_URL}?oauth_error=Connexion+annulée`);
+  }
+
+  try {
+    const infos = await echangerCodeOAuth(provider, code, req);
+    const user = trouverOuCreerUtilisateur(provider, infos);
+    const token = genererToken(user);
+    // On passe le JWT dans l'URL — le frontend le lit et le stocke dans localStorage
+    res.redirect(`${FRONTEND_URL}?token=${token}`);
+  } catch (err) {
+    console.error(`[oauth/${provider}]`, err.message);
+    res.redirect(`${FRONTEND_URL}?oauth_error=Échec+de+l'authentification`);
+  }
+});
+
+// ─── Helpers OAuth ────────────────────────────────────────────────────────────
+
+// Échange le code d'autorisation contre un token d'accès puis récupère
+// les informations du profil utilisateur auprès du fournisseur.
+async function echangerCodeOAuth(provider, code, req) {
+  if (provider === 'google') {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id:     process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri:  `${req.protocol}://${req.get('host')}/auth/oauth/google/callback`,
+        grant_type:    'authorization_code',
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) throw new Error('Token Google invalide');
+
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const profile = await profileRes.json();
+    return { providerId: profile.sub, email: profile.email, name: profile.name };
+  }
+
+  if (provider === 'github') {
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id:     process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri:  `${req.protocol}://${req.get('host')}/auth/oauth/github/callback`,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) throw new Error('Token GitHub invalide');
+
+    const profileRes = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}`, 'User-Agent': 'AREA-App' },
+    });
+    const profile = await profileRes.json();
+
+    // L'e-mail peut être masqué par l'utilisateur dans ses paramètres GitHub
+    let email = profile.email;
     if (!email) {
-      const emailsResp = await fetch('https://api.github.com/user/emails', {
-        headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'AREA-App' },
+      const emailsRes = await fetch('https://api.github.com/user/emails', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}`, 'User-Agent': 'AREA-App' },
       });
-      if (emailsResp.ok) {
-        const emails = await emailsResp.json();
-        const principal = emails.find((e) => e.primary && e.verified);
-        email = principal ? principal.email : `github_${data.id}@noreply.github.com`;
-      }
+      const emails = await emailsRes.json();
+      const principal = emails.find((e) => e.primary && e.verified);
+      email = principal ? principal.email : `github_${profile.id}@noreply.github.com`;
     }
 
-    return { providerId: String(data.id), email, name: data.name || data.login };
+    return { providerId: String(profile.id), email, name: profile.name || profile.login };
   }
 
   throw new Error(`Fournisseur inconnu : ${provider}`);
+}
+
+// Cherche un compte existant lié à ce fournisseur OAuth, ou en crée un nouveau.
+function trouverOuCreerUtilisateur(provider, infos) {
+  let oauthRow = db.prepare(
+    'SELECT * FROM user_oauth WHERE provider = ? AND provider_user_id = ?'
+  ).get(provider, infos.providerId);
+
+  let user;
+
+  if (oauthRow) {
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(oauthRow.user_id);
+  } else {
+    // Rattache à un compte existant par e-mail si possible
+    user = db.prepare('SELECT * FROM users WHERE email = ?').get(infos.email);
+    if (!user) {
+      const result = db.prepare('INSERT INTO users (name, email) VALUES (?, ?)').run(infos.name, infos.email);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+    }
+    db.prepare(
+      'INSERT INTO user_oauth (user_id, provider, provider_user_id) VALUES (?, ?, ?)'
+    ).run(user.id, provider, infos.providerId);
+  }
+
+  return user;
 }
 
 module.exports = router;

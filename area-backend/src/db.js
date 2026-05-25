@@ -17,11 +17,12 @@ db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    name         TEXT    NOT NULL,
-    email        TEXT    UNIQUE NOT NULL,
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    email         TEXT    UNIQUE NOT NULL,
     password_hash TEXT,
-    created_at   INTEGER DEFAULT (strftime('%s', 'now'))
+    is_admin      INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER DEFAULT (strftime('%s', 'now'))
   );
 
   -- Comptes OAuth liés à un utilisateur (Google, GitHub...)

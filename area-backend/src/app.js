@@ -18,6 +18,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
 app.use('/auth', require('./routes/auth'));
 app.use('/services', require('./routes/services'));
 app.use('/areas', require('./routes/areas'));
+app.use('/admin', require('./routes/admin'));
 
 app.get('/about.json', (req, res) => {
   const services = Object.values(SERVICES).map((svc) => ({
