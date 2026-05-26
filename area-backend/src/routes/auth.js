@@ -67,9 +67,10 @@ router.get('/oauth/:provider/init', (req, res) => {
     if (!process.env.GOOGLE_CLIENT_ID)
       return res.status(500).json({ error: 'GOOGLE_CLIENT_ID non configuré.' });
 
+    const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
     const params = new URLSearchParams({
       client_id:     process.env.GOOGLE_CLIENT_ID,
-      redirect_uri:  `${req.protocol}://${req.get('host')}/auth/oauth/google/callback`,
+      redirect_uri:  `${backendUrl}/auth/oauth/google/callback`,
       response_type: 'code',
       scope:         'openid email profile',
       access_type:   'offline',
@@ -82,10 +83,12 @@ router.get('/oauth/:provider/init', (req, res) => {
     if (!process.env.GITHUB_CLIENT_ID)
       return res.status(500).json({ error: 'GITHUB_CLIENT_ID non configuré.' });
 
+    const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
     const params = new URLSearchParams({
       client_id:    process.env.GITHUB_CLIENT_ID,
-      redirect_uri: `${req.protocol}://${req.get('host')}/auth/oauth/github/callback`,
-      scope:        'read:user user:email',
+      redirect_uri: `${backendUrl}/auth/oauth/github/callback`,
+      // public_repo permet de lire les issues et PRs des dépôts publics
+      scope:        'read:user user:email public_repo',
     });
     return res.redirect(`https://github.com/login/oauth/authorize?${params}`);
   }
@@ -124,6 +127,9 @@ router.get('/oauth/:provider/callback', async (req, res) => {
 // Échange le code d'autorisation contre un token d'accès puis récupère
 // les informations du profil utilisateur auprès du fournisseur.
 async function echangerCodeOAuth(provider, code, req) {
+  // Utilise BACKEND_URL si défini, sinon reconstruit depuis la requête
+  const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+
   if (provider === 'google') {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -132,7 +138,7 @@ async function echangerCodeOAuth(provider, code, req) {
         code,
         client_id:     process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri:  `${req.protocol}://${req.get('host')}/auth/oauth/google/callback`,
+        redirect_uri:  `${backendUrl}/auth/oauth/google/callback`,
         grant_type:    'authorization_code',
       }),
     });
@@ -143,7 +149,7 @@ async function echangerCodeOAuth(provider, code, req) {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     const profile = await profileRes.json();
-    return { providerId: profile.sub, email: profile.email, name: profile.name };
+    return { providerId: profile.sub, email: profile.email, name: profile.name, accessToken: tokenData.access_token };
   }
 
   if (provider === 'github') {
@@ -154,7 +160,7 @@ async function echangerCodeOAuth(provider, code, req) {
         client_id:     process.env.GITHUB_CLIENT_ID,
         client_secret: process.env.GITHUB_CLIENT_SECRET,
         code,
-        redirect_uri:  `${req.protocol}://${req.get('host')}/auth/oauth/github/callback`,
+        redirect_uri:  `${backendUrl}/auth/oauth/github/callback`,
       }),
     });
     const tokenData = await tokenRes.json();
@@ -176,7 +182,7 @@ async function echangerCodeOAuth(provider, code, req) {
       email = principal ? principal.email : `github_${profile.id}@noreply.github.com`;
     }
 
-    return { providerId: String(profile.id), email, name: profile.name || profile.login };
+    return { providerId: String(profile.id), email, name: profile.name || profile.login, accessToken: tokenData.access_token };
   }
 
   throw new Error(`Fournisseur inconnu : ${provider}`);
@@ -191,6 +197,11 @@ function trouverOuCreerUtilisateur(provider, infos) {
   let user;
 
   if (oauthRow) {
+    // Met à jour le token d'accès à chaque connexion (il peut avoir été renouvelé)
+    if (infos.accessToken) {
+      db.prepare('UPDATE user_oauth SET access_token = ? WHERE id = ?')
+        .run(infos.accessToken, oauthRow.id);
+    }
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(oauthRow.user_id);
   } else {
     // Rattache à un compte existant par e-mail si possible
@@ -199,9 +210,10 @@ function trouverOuCreerUtilisateur(provider, infos) {
       const result = db.prepare('INSERT INTO users (name, email) VALUES (?, ?)').run(infos.name, infos.email);
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
     }
+    // On stocke aussi le token d'accès pour pouvoir l'utiliser dans les hooks
     db.prepare(
-      'INSERT INTO user_oauth (user_id, provider, provider_user_id) VALUES (?, ?, ?)'
-    ).run(user.id, provider, infos.providerId);
+      'INSERT INTO user_oauth (user_id, provider, provider_user_id, access_token) VALUES (?, ?, ?, ?)'
+    ).run(user.id, provider, infos.providerId, infos.accessToken || null);
   }
 
   return user;

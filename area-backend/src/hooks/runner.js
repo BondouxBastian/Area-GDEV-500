@@ -1,4 +1,5 @@
 const db = require('../db');
+const nodemailer = require('nodemailer');
 
 // Intervalle de vérification des conditions d'action (en millisecondes).
 // 60 secondes est un bon compromis entre réactivité et charge serveur.
@@ -151,7 +152,7 @@ function verifierActionTimer(actionId, config) {
     if (!config.date) return false;
     const cible = new Date(config.date);
     const diff = Math.abs(maintenant - cible) / 1000 / 60;
-    return diff <= 1; // tolérance d'une minute
+    return diff <= 3; // tolérance de 3 minutes
   }
 
   return false;
@@ -297,6 +298,11 @@ async function executerReaction(service, reactionId, config, oauthToken) {
     return;
   }
 
+  if (service === 'email') {
+    await executerReactionEmail(reactionId, config);
+    return;
+  }
+
   console.warn(`[hooks] Réaction non implémentée : ${service}/${reactionId}`);
 }
 
@@ -410,6 +416,37 @@ async function executerReactionNotion(reactionId, config, oauthToken) {
         properties: config.properties || {},
       }),
     });
+  }
+}
+
+// --- Email SMTP (nodemailer) ------------------------------------------------
+
+async function executerReactionEmail(reactionId, config) {
+  if (!config.from || !config.password || !config.to) {
+    console.warn('[hooks] Email : configuration incomplète (from, password, to requis)');
+    return;
+  }
+
+  if (reactionId === 'send_email') {
+    // Crée un transporteur SMTP Gmail avec le mot de passe d'application fourni
+    // Les mots de passe d'application Google sont affichés avec des espaces
+    // pour la lisibilité mais doivent être utilisés sans espaces
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: config.from,
+        pass: config.password.replace(/\s/g, ''),
+      },
+    });
+
+    await transporter.sendMail({
+      from: config.from,
+      to: config.to,
+      subject: config.subject || 'Message depuis AREA',
+      text: config.body || '',
+    });
+
+    console.log(`[hooks] Email envoyé à ${config.to}`);
   }
 }
 

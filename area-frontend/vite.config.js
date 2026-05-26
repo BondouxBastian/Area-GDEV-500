@@ -8,6 +8,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
+        // Nécessaire pour que le backend reçoive localhost:8080 comme Host,
+        // sinon le redirect URI OAuth serait construit avec le mauvais port.
+        changeOrigin: true,
         // Supprime le préfixe /api avant de transmettre au backend
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

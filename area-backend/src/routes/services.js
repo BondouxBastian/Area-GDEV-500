@@ -47,11 +47,21 @@ router.post('/:id/subscribe', requireAuth, (req, res) => {
     return res.status(404).json({ error: `Service "${id}" introuvable.` });
   }
 
+  // Si aucun token fourni par le client, on essaie d'utiliser le token OAuth
+  // stocké lors de la connexion (pour GitHub et Gmail notamment)
+  let tokenFinal = oauthToken || null;
+  if (!tokenFinal) {
+    const oauthRow = db.prepare(
+      'SELECT access_token FROM user_oauth WHERE user_id = ? AND provider = ?'
+    ).get(req.user.id, id);
+    tokenFinal = oauthRow?.access_token || null;
+  }
+
   db.prepare(`
     INSERT INTO user_services (user_id, service_id, oauth_token)
     VALUES (?, ?, ?)
     ON CONFLICT(user_id, service_id) DO UPDATE SET oauth_token = excluded.oauth_token
-  `).run(req.user.id, id, oauthToken || null);
+  `).run(req.user.id, id, tokenFinal);
 
   res.json({ message: `Souscription au service "${SERVICES[id].name}" confirmée.` });
 });

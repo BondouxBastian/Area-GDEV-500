@@ -367,13 +367,33 @@ function PageServices({ services, onBasculer }) {
   const [chargement, setChargement] = useState(null);
   const [erreur, setErreur] = useState("");
 
+  const [modalNotion, setModalNotion] = useState(false);
+  const [notionToken, setNotionToken] = useState("");
+
   const basculer = async (id, estConnecte) => {
+    // Notion nécessite un token d'intégration saisi manuellement
+    if (id === "notion" && !estConnecte) {
+      setModalNotion(true);
+      return;
+    }
     setChargement(id); setErreur("");
     try {
       if (estConnecte) await api.unsubscribeService(id);
       else await api.subscribeService(id, null);
       onBasculer(id, !estConnecte);
     } catch { setErreur("Impossible de modifier la souscription."); }
+    finally { setChargement(null); }
+  };
+
+  const confirmerNotion = async () => {
+    if (!notionToken.trim()) return;
+    setChargement("notion"); setErreur("");
+    try {
+      await api.subscribeService("notion", notionToken.trim());
+      onBasculer("notion", true);
+      setModalNotion(false);
+      setNotionToken("");
+    } catch { setErreur("Token Notion invalide."); }
     finally { setChargement(null); }
   };
 
@@ -384,6 +404,24 @@ function PageServices({ services, onBasculer }) {
         <p className="page__sous-titre">Connectez vos comptes pour activer les actions et réactions</p>
       </div>
       <MessageErreur message={erreur} />
+
+      {modalNotion && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+          <div style={{ background:"#1e1e2e", borderRadius:"1rem", padding:"2rem", width:"100%", maxWidth:"480px" }}>
+            <h2 style={{ color:"#fff", marginBottom:"0.5rem" }}>Connecter Notion</h2>
+            <p style={{ color:"rgba(255,255,255,0.6)", marginBottom:"1.5rem", fontSize:"0.9rem" }}>
+              Créez une intégration sur <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{color:"#6366f1"}}>notion.so/my-integrations</a> et collez le token ici.
+            </p>
+            <input type="text" placeholder="secret_xxxxxxxxxxxx"
+              value={notionToken} onChange={(e) => setNotionToken(e.target.value)}
+              className="champ-input champ-input--sombre" style={{ marginBottom:"1rem" }} />
+            <div style={{ display:"flex", gap:"0.75rem" }}>
+              <button onClick={confirmerNotion} className="bouton-principal" disabled={!notionToken.trim()}>Connecter</button>
+              <button onClick={() => setModalNotion(false)} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"0.5rem", padding:"0.6rem 1.2rem", color:"rgba(255,255,255,0.7)", cursor:"pointer" }}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="services-grille">
         {services.map((svc) => (
           <div key={svc.id} className="carte-service"
@@ -438,11 +476,16 @@ function PageCreation({ services, setAreas, setPage }) {
       // Conversion des champs numériques
       const configAction = {};
       (actionSel.action.config_schema || []).forEach((c) => {
-        configAction[c.key] = c.type === "number" ? Number(actionConfig[c.key]) : actionConfig[c.key];
+        // Les champs datetime-local sont convertis en UTC avant envoi au serveur
+        if (c.type === "datetime-local") configAction[c.key] = new Date(actionConfig[c.key]).toISOString();
+        else if (c.type === "number") configAction[c.key] = Number(actionConfig[c.key]);
+        else configAction[c.key] = actionConfig[c.key];
       });
       const configReaction = {};
       (reactionSel.reaction.config_schema || []).forEach((c) => {
-        configReaction[c.key] = c.type === "number" ? Number(reactionConfig[c.key]) : reactionConfig[c.key];
+        if (c.type === "datetime-local") configReaction[c.key] = new Date(reactionConfig[c.key]).toISOString();
+        else if (c.type === "number") configReaction[c.key] = Number(reactionConfig[c.key]);
+        else configReaction[c.key] = reactionConfig[c.key];
       });
 
       const nouvelleArea = await api.createArea({

@@ -150,7 +150,109 @@ Retourne la liste des services, actions et réactions disponibles ainsi que l'IP
 | GitHub | 3 | 2 |
 | Discord | 2 | 2 |
 | Minuteur | 3 | 0 |
+| Email SMTP | 0 | 1 |
 | Notion | 2 | 2 |
+
+## Diagrammes
+
+### Diagramme de classes
+
+```
+┌─────────────┐       ┌──────────────┐       ┌─────────────────┐
+│    users    │       │  user_oauth  │       │  user_services  │
+│─────────────│       │──────────────│       │─────────────────│
+│ id          │1─────*│ user_id      │       │ user_id         │
+│ name        │       │ provider     │       │ service_id      │
+│ email       │1─────*│ provider_    │       │ oauth_token     │
+│ password_   │       │ user_id      │       └─────────────────┘
+│ hash        │       │ access_token │              *
+│ is_admin    │       └──────────────┘              │
+│ created_at  │                                     1
+└─────────────┘
+       1
+       │
+       *
+┌─────────────┐       ┌──────────────────┐
+│    areas    │       │  area_triggers   │
+│─────────────│       │──────────────────│
+│ id          │1─────*│ area_id          │
+│ user_id     │       │ trigger_key      │
+│ name        │       │ triggered_at     │
+│ active      │       └──────────────────┘
+│ action_     │
+│ service     │
+│ action_id   │
+│ action_     │
+│ config      │
+│ reaction_   │
+│ service     │
+│ reaction_id │
+│ reaction_   │
+│ config      │
+│ runs        │
+└─────────────┘
+```
+
+### Diagramme de séquence — Déclenchement d'une AREA
+
+```
+Utilisateur    Frontend       Backend        API externe
+     │              │              │               │
+     │─ Créer AREA ─►              │               │
+     │              │─ POST /areas ►               │
+     │              │              │─ Sauvegarde ─►│
+     │              │◄─ 201 AREA ──│               │
+     │              │              │               │
+     │         [60 secondes]       │               │
+     │              │              │               │
+     │              │    [hooks]   │               │
+     │              │    Runner    │               │
+     │              │    vérifie   │               │
+     │              │    chaque    │               │
+     │              │    AREA      │               │
+     │              │              │─ Vérifie ────►│
+     │              │              │  condition    │
+     │              │              │◄─ Événement ──│
+     │              │              │   détecté     │
+     │              │              │               │
+     │              │              │─ Exécute ────►│
+     │              │              │  réaction     │
+     │              │              │◄─ OK ─────────│
+     │              │              │               │
+     │              │              │─ runs + 1 ───►│
+     │◄─────────────────────────── │ (BDD)         │
+     │   Notification reçue        │               │
+```
+
+### Diagramme de séquence — Authentification OAuth
+
+```
+Utilisateur    Frontend       Backend        Google/GitHub
+     │              │              │               │
+     │─ Clic OAuth ─►              │               │
+     │              │─ GET /auth/  │               │
+     │              │  oauth/      │               │
+     │              │  google/init ►               │
+     │              │              │─ Redirect ───►│
+     │◄─────────────────────────────  302          │
+     │─ Connexion ──────────────────────────────── ►
+     │◄──────────────────────────────────── Code ──│
+     │              │              │               │
+     │─ GET /auth/oauth/google/callback?code=... ──►
+     │              │              │─ Échange ────►│
+     │              │              │  code/token   │
+     │              │              │◄─ Token ──────│
+     │              │              │─ Profil ─────►│
+     │              │              │◄─ Email/nom ──│
+     │              │              │               │
+     │              │              │─ Crée/trouve  │
+     │              │              │  utilisateur  │
+     │              │              │─ Génère JWT   │
+     │◄─ Redirect ──────────────── │               │
+     │  ?token=JWT  │              │               │
+     │              │─ Stocke JWT  │               │
+     │              │  localStorage│               │
+```
 
 ## Tests
 

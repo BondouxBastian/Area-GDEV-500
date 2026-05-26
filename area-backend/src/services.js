@@ -188,6 +188,28 @@ const SERVICES = {
     reactions: [],
   },
 
+  email: {
+    id: 'email',
+    name: 'Email (SMTP)',
+    description: 'Envoi d\'e-mails via votre compte Gmail ou tout serveur SMTP',
+    requiresOAuth: false,
+    actions: [],
+    reactions: [
+      {
+        id: 'send_email',
+        name: 'Envoyer un e-mail',
+        description: 'Envoie un e-mail via SMTP (Gmail recommandé)',
+        config_schema: [
+          { key: 'from',     label: 'Votre adresse Gmail',        type: 'email',    required: true,  placeholder: 'vous@gmail.com' },
+          { key: 'password', label: 'Mot de passe d\'application', type: 'text',     required: true,  placeholder: 'xxxx xxxx xxxx xxxx' },
+          { key: 'to',       label: 'Destinataire',               type: 'email',    required: true,  placeholder: 'destinataire@exemple.com' },
+          { key: 'subject',  label: 'Objet',                      type: 'text',     required: true,  placeholder: 'Objet du message' },
+          { key: 'body',     label: 'Corps du message',           type: 'textarea', required: false, placeholder: 'Contenu de l\'e-mail...' },
+        ],
+      },
+    ],
+  },
+
   notion: {
     id: 'notion',
     name: 'Notion',
