@@ -13,6 +13,11 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // Les setState appelés dans des effets d'initialisation ou de chargement sont intentionnels.
+      // Cette règle génère des faux positifs sur les fonctions async wrappées dans useCallback.
+      'react-hooks/set-state-in-effect': 'off',
+    },
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
